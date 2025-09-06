@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang = "zh-CN">
+    <head>
+        <meta charset = "UTF-8">
+        <meta name = "viewport" content = "width=device-width, initial-scale=1.0">
+        <title>DawnTilDusk |我的个人网站</title>
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+        <video autoplay muted loop>
+            <source src="main_background.mp4" type="video/mp4">
+        </video>
+        <div class = "container">
+            <header>
+                <div class = "container-inner">
+                    <nav>
+                        <a href="#" class="logo">我的网站</a>
+                        <ul class="nav-links">
+                            <li><a href="#">001</a></li>
+                            <li><a href="#">002</a></li>
+                            <li><a href="#">003</a></li>
+                            <li><a href="#">004</a></li>
+                            <li><a href="#">005</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </header>
+
+            <main>
+                <section class="content-section">
+                    <h2 class="section-title">学习进度</h2>
+                    <p>记录我的学习进度</p>
+                    
+                    <div class="add-progress-container">
+                        <input type="text" class="fancy-input" data-name="name" id="progressContent" placeholder="请输入to do">
+                        <button class="btn add-progress-btn" id="addProgressBtn">添加</button>
+                    </div>
+
+                    <div class="progress-section-container" id="progressSectionContainer">
+                        
+                    </div>
+                </section>
+            </main>
+        </div>
+        <footer>
+            <p>© 2025 我的网站 | 构建更优雅的网页</p>
+        </footer>
+        <script src="script.js"></script>
+    </body>
+</html>

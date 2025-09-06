@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>通用版：多个展开板块</title>
+    <style>
+        .toggle-btn {
+            margin: 5px 0;
+            padding: 8px 16px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .content-panel {
+            margin: 0 0 10px;
+            padding: 0 20px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            height: 0;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        .content-panel.show {
+            height: auto;
+            opacity: 1;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 多个按钮-板块组合 -->
+    <div class="panel-group">
+        <button class="toggle-btn" data-target="panelA">板块1：前端基础</button>
+        <div class="content-panel" id="panelA">
+            <p>HTML、CSS、JavaScript 是前端开发的三大基石。</p>
+        </div>
+
+        <button class="toggle-btn" data-target="panelB">板块2：框架学习</button>
+        <div class="content-panel" id="panelB">
+            <p>主流前端框架：React、Vue、Angular。</p>
+        </div>
+
+        <button class="toggle-btn" data-target="panelC">板块3：工程化</button>
+        <div class="content-panel" id="panelC">
+            <p>前端工程化工具：Webpack、Vite、ESLint。</p>
+        </div>
+    </div>
+
+    <script>
+        // 事件委托：给父容器绑定一次事件，处理所有按钮
+        const panelGroup = document.querySelector('.panel-group');
+        panelGroup.addEventListener('click', (e) => {
+            // 判断点击的是否是“展开按钮”
+            if (e.target.classList.contains('toggle-btn')) {
+                const btn = e.target;
+                const targetPanel = document.getElementById(btn.dataset.target);
+                
+                // 切换当前板块的状态
+                targetPanel.classList.toggle('show');
+                
+                // 更新按钮文字
+                btn.textContent = targetPanel.classList.contains('show') 
+                    ? `收起${btn.textContent.slice(2)}` 
+                    : `展开${btn.textContent.slice(2)}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
+/*关键代码解析
+事件委托：通过给父容器 .panel-group 绑定点击事件，统一处理所有子按钮，新增按钮无需额外绑定事件（适合动态生成的按钮）。
+e.target.classList.contains('toggle-btn')：判断点击的元素是否是展开按钮，避免触发父容器内其他元素的点击事件。
+常见问题与优化
+板块内容动态变化：若展开后板块内容会动态添加（如加载数据），需确保 height: auto 能自适应新内容（CSS 会自动处理，无需额外代码）。
+默认展开某个板块：只需在对应板块的 HTML 中添加 show 类（如 <div class="content-panel show" id="panel1">）。
+禁止同时展开多个板块：若需要 “手风琴效果”（一次只展开一个板块），可在点击时先关闭所有其他板块：*/

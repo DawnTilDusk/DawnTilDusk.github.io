@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML5 header元素详解</title>
+    <style>
+        /* 基础样式 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+        
+        /* 页面容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 页面标题 */
+        .page-title {
+            text-align: center;
+            margin: 30px 0;
+            color: #2c3e50;
+        }
+        
+        /* 主header样式 */
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 30px 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        
+        /* 导航菜单 */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 内容区块 */
+        .content-section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* 文章header */
+        article header {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        
+        /* 代码示例 */
+        .code-example {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        }
+        
+        /* 示例区块 */
+        .example-block {
+            border: 2px dashed #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .nav-links {
+                flex-direction: column;
+                width: 100%;
+                text-align: center;
+            }
+        }
+        
+        /* 页脚 */
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        /* 高亮文本 */
+        .highlight {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        /* 提示框 */
+        .tip {
+            background-color: #e7f5ff;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 主header -->
+    <header>
+        <div class="container">
+            <nav>
+                <a href="#" class="logo">我的网站</a>
+                <ul class="nav-links">
+                    <li><a href="#">首页</a></li>
+                    <li><a href="#">关于</a></li>
+                    <li><a href="#">服务</a></li>
+                    <li><a href="#">博客</a></li>
+                    <li><a href="#">联系</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+    
+    <div class="container">
+        <h1 class="page-title">HTML5 <span class="highlight">&lt;header&gt;</span> 元素详解</h1>
+        
+        <div class="content-section">
+            <h2>什么是&lt;header&gt;元素？</h2>
+            <p><span class="highlight">&lt;header&gt;</span>是HTML5中引入的语义化标签，用于定义文档或文档部分的页眉（介绍性内容）。</p>
+            
+            <div class="tip">
+                <p><strong>提示：</strong> 与旧的&lt;div class="header"&gt;相比，&lt;header&gt;提供了更好的语义含义，有助于SEO和可访问性。</p>
+            </div>
+            
+            <div class="code-example">
+                &lt;!-- 基本用法 --&gt;
+                &lt;header&gt;
+                  &lt;h1&gt;网站标题&lt;/h1&gt;
+                  &lt;p&gt;网站标语或简介&lt;/p&gt;
+                &lt;/header&gt;
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>&lt;header&gt;的常见用途</h2>
+            
+            <div class="example-block">
+                <h3>1. 页面顶部header</h3>
+                <p>通常包含网站logo、导航菜单和搜索框等。</p>
+                
+                <div class="code-example">
+                    &lt;header&gt;
+                      &lt;div class="logo"&gt;我的网站&lt;/div&gt;
+                      &lt;nav&gt;
+                        &lt;ul&gt;
+                          &lt;li&gt;&lt;a href="#"&gt;首页&lt;/a&gt;&lt;/li&gt;
+                          &lt;li&gt;&lt;a href="#"&gt;关于&lt;/a&gt;&lt;/li&gt;
+                          &lt;li&gt;&lt;a href="#"&gt;联系&lt;/a&gt;&lt;/li&gt;
+                        &lt;/ul&gt;
+                      &lt;/nav&gt;
+                    &lt;/header&gt;
+                </div>
+            </div>
+            
+            <div class="example-block">
+                <h3>2. 文章header</h3>
+                <p>每个&lt;article&gt;或&lt;section&gt;都可以有自己的&lt;header&gt;。</p>
+                
+                <article>
+                    <header>
+                        <h2>文章标题</h2>
+                        <p>作者: <span>张三</span> | 发布日期: <span>2023-05-15</span></p>
+                    </header>
+                    <p>这里是文章内容...</p>
+                </article>
+                
+                <div class="code-example">
+                    &lt;article&gt;
+                      &lt;header&gt;
+                        &lt;h2&gt;文章标题&lt;/h2&gt;
+                        &lt;p&gt;作者: 张三 | 发布日期: 2023-05-15&lt;/p&gt;
+                      &lt;/header&gt;
+                      &lt;p&gt;这里是文章内容...&lt;/p&gt;
+                    &lt;/article&gt;
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>&lt;header&gt;与&lt;head&gt;的区别</h2>
+            <p>初学者常混淆&lt;header&gt;和&lt;head&gt;：</p>
+            
+            <ul>
+                <li><span class="highlight">&lt;head&gt;</span>：包含文档的元数据（标题、字符集、样式表链接等），对用户不可见</li>
+                <li><span class="highlight">&lt;header&gt;</span>：包含可见的介绍性内容（标题、导航等）</li>
+            </ul>
+            
+            <div class="code-example">
+                &lt;!DOCTYPE html&gt;
+                &lt;html&gt;
+                &lt;head&gt;
+                  &lt;!-- 元数据 --&gt;
+                  &lt;title&gt;页面标题&lt;/title&gt;
+                  &lt;meta charset="UTF-8"&gt;
+                  &lt;link rel="stylesheet" href="styles.css"&gt;
+                &lt;/head&gt;
+                &lt;body&gt;
+                  &lt;header&gt;
+                    &lt;!-- 可见的页眉内容 --&gt;
+                    &lt;h1&gt;网站标题&lt;/h1&gt;
+                  &lt;/header&gt;
+                &lt;/body&gt;
+                &lt;/html&gt;
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>最佳实践</h2>
+            
+            <div class="tip">
+                <p><strong>提示：</strong> 一个页面可以有多个&lt;header&gt;元素，但通常不应嵌套使用。</p>
+            </div>
+            
+            <ol>
+                <li>使用&lt;header&gt;包裹介绍性内容（标题、logo、导航等）</li>
+                <li>可以在&lt;article&gt;、&lt;section&gt;等元素内部使用&lt;header&gt;</li>
+                <li>避免在&lt;footer&gt;、&lt;address&gt;或另一个&lt;header&gt;内部使用&lt;header&gt;</li>
+                <li>通常包含一个或多个标题元素（&lt;h1&gt;-&lt;h6&gt;）</li>
+            </ol>
+        </div>
+    </div>
+    
+    <footer>
+        <p>© 2023 HTML5学习指南 | 使用语义化标签构建更优雅的网页</p>
+    </footer>
+</body>
+</html>
