@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSS中header选择器详解</title>
+    <style>
+        /* 基础样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .page-title {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #2c3e50;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        /* 
+        ======================
+        HEADER选择器详解
+        ======================
+        */
+        
+        /* 
+        基本header样式选择器
+        这会选择页面中所有的<header>元素
+        */
+        header {
+            background: linear-gradient(135deg, #3498db, #2c3e50);
+            color: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 
+        header内的标题样式
+        使用后代选择器选择header内的h1元素
+        */
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        /* 
+        header内的段落样式
+        使用后代选择器选择header内的p元素
+        */
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        /* 
+        特定类的header样式
+        使用类选择器选择具有特定类的header元素
+        */
+        header.hero {
+            text-align: center;
+            padding: 60px 30px;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        header.hero h1 {
+            font-size: 3rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 
+        带导航的header样式
+        使用后代选择器选择header内的nav元素
+        */
+        header nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        
+        header nav .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        
+        header nav ul {
+            display: flex;
+            list-style: none;
+            gap: 20px;
+        }
+        
+        header nav a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        
+        header nav a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 
+        文章内的header样式
+        使用后代选择器选择article内的header元素
+        */
+        article header {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            margin: 20px 0;
+            padding: 20px;
+        }
+        
+        /* 
+        响应式设计
+        使用媒体查询在不同屏幕尺寸下修改header样式
+        */
+        @media (max-width: 768px) {
+            header {
+                padding: 20px;
+            }
+            
+            header.hero {
+                padding: 40px 20px;
+            }
+            
+            header.hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            header nav {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            header nav ul {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+        }
+        
+        /* 内容区块样式 */
+        .content-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .code-example {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        }
+        
+        .example-block {
+            border: 2px dashed #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        
+        .tip {
+            background-color: #e7f5ff;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        .highlight {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="page-title">CSS中<span class="highlight">header</span>选择器详解</h1>
+        
+        <!-- 主header -->
+        <header>
+            <h1>网站标题</h1>
+            <p>网站标语或简介内容</p>
+            
+            <nav>
+                <div class="logo">我的网站</div>
+                <ul>
+                    <li><a href="#">首页</a></li>
+                    <li><a href="#">关于</a></li>
+                    <li><a href="#">服务</a></li>
+                    <li><a href="#">联系</a></li>
+                </ul>
+            </nav>
+        </header>
+        
+        <div class="content-section">
+            <h2>header选择器的作用</h2>
+            <p>在CSS中，<span class="highlight">header</span>选择器用于选择HTML中的所有<span class="highlight">&lt;header&gt;</span>元素并应用样式。</p>
+            
+            <div class="tip">
+                <p><strong>提示：</strong> CSS中的<code>header</code>选择器对应HTML中的<code>&lt;header&gt;</code>标签，用于定义文档或节的页眉。</p>
+            </div>
+            
+            <div class="code-example">
+                /* 基本header选择器 */
+                header {
+                  background-color: #3498db;
+                  color: white;
+                  padding: 20px;
+                  text-align: center;
+                }
+                
+                /* 选择header内的h1元素 */
+                header h1 {
+                  font-size: 2.5rem;
+                  margin-bottom: 10px;
+                }
+                
+                /* 选择header内的p元素 */
+                header p {
+                  font-size: 1.2rem;
+                  opacity: 0.9;
+                }
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>header选择器的不同类型</h2>
+            
+            <div class="example-block">
+                <h3>1. 元素选择器</h3>
+                <p>直接使用<code>header</code>选择所有<code>&lt;header&gt;</code>元素。</p>
+                
+                <div class="code-example">
+                    header {
+                      /* 样式规则 */
+                    }
+                </div>
+            </div>
+            
+            <div class="example-block">
+                <h3>2. 类选择器</h3>
+                <p>使用<code>header.classname</code>选择具有特定类的header元素。</p>
+                
+                <div class="code-example">
+                    header.hero {
+                      /* 特殊hero header的样式 */
+                      text-align: center;
+                      padding: 60px 30px;
+                    }
+                </div>
+                
+                <!-- 示例hero header -->
+                <header class="hero">
+                    <h1>英雄区域标题</h1>
+                    <p>这是一个特殊的hero header示例</p>
+                </header>
+            </div>
+            
+            <div class="example-block">
+                <h3>3. 后代选择器</h3>
+                <p>使用<code>header element</code>选择header内的特定元素。</p>
+                
+                <div class="code-example">
+                    header nav {
+                      /* header内nav元素的样式 */
+                      display: flex;
+                      justify-content: space-between;
+                    }
+                    
+                    header h1 {
+                      /* header内h1元素的样式 */
+                      font-size: 2.5rem;
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>header选择器的实际应用</h2>
+            
+            <div class="example-block">
+                <h3>文章内的header</h3>
+                <p>每个<code>&lt;article&gt;</code>或<code>&lt;section&gt;</code>都可以有自己的<code>&lt;header&gt;</code>。</p>
+                
+                <article>
+                    <header>
+                        <h2>文章标题</h2>
+                        <p>作者: 张三 | 发布日期: 2023-05-15</p>
+                    </header>
+                    <p>这里是文章内容...CSS中的header选择器非常有用，可以帮助我们为不同部分的页眉设置不同的样式。</p>
+                </article>
+                
+                <div class="code-example">
+                    &lt;article&gt;
+                      &lt;header&gt;
+                        &lt;h2&gt;文章标题&lt;/h2&gt;
+                        &lt;p&gt;作者: 张三 | 发布日期: 2023-05-15&lt;/p&gt;
+                      &lt;/header&gt;
+                      &lt;p&gt;文章内容...&lt;/p&gt;
+                    &lt;/article&gt;
+                    
+                    /* 文章内header的样式 */
+                    article header {
+                      background: linear-gradient(135deg, #2ecc71, #27ae60);
+                      margin: 20px 0;
+                      padding: 20px;
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>header选择器的最佳实践</h2>
+            
+            <ol>
+                <li>使用语义化的<code>&lt;header&gt;</code>标签而不是<code>&lt;div class="header"&gt;</code></li>
+                <li>为不同类型的header创建特定的类（如<code>header.hero</code>）</li>
+                <li>使用后代选择器精确定位header内的元素</li>
+                <li>考虑响应式设计，为不同屏幕尺寸调整header样式</li>
+                <li>保持header样式的一致性，提高用户体验</li>
+            </ol>
+            
+            <div class="tip">
+                <p><strong>提示：</strong> 使用CSS变量可以使header样式更易于维护和修改：</p>
+                
+                <div class="code-example">
+                    :root {
+                      --header-bg-color: #3498db;
+                      --header-text-color: white;
+                      --header-padding: 30px;
+                    }
+                    
+                    header {
+                      background-color: var(--header-bg-color);
+                      color: var(--header-text-color);
+                      padding: var(--header-padding);
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <p>© 2023 CSS学习指南 | 理解和使用header选择器</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日程清单</title>
+    <script src="https://cdn.staticfile.net/vue/3.0.5/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/polyfill@7.12.1/dist/polyfill.min.js"></script>
+</head>
+<body>
+    <a href="course.html" 
+       style="position: fixed; 
+              top: 25px; 
+              left: 4%; 
+              z-index: 1000; 
+              text-decoration: none; 
+              color: white; 
+              background-color: #007BFF; 
+              opacity: 0.8;
+              padding: 10px 15px; 
+              border-radius: 5px; 
+              box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        课程表</a>
+        <a href="index.html" 
+       style="position: fixed; 
+              top: 25px; 
+              right: 4%; 
+              z-index: 1000; 
+              text-decoration: none; 
+              color: white; 
+              background-color: #903bff; 
+              opacity:0.8;
+              padding: 10px 15px; 
+              border-radius: 5px; 
+              box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        登录</a>
+    <div id="app">
+        <div class="todo-list">
+            <div class="title">日程表</div>
+            
+            <div class="date">{{getDate()}}</div>            
+            
+            <div class="todo-form">
+                <input v-model="newItem" class="todo-input" type="text" placeholder="请添加日程"/>
+                <div @click="addItem" class="todo-button">添加</div>
+            </div>
+
+            <div v-for="(item,index) in list" class="item" :class="{completed: item.completed}">
+                <div>
+                    <input type="checkbox" v-model="item.completed"/>
+                    <span class="name">{{ index + 1 }}. {{ item.name }}</span>
+                </div>
+                <div @click="removeItem(index)" class="del">删除</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref ,watch} = Vue;
+        
+        createApp({
+            setup() {
+                const savedList = localStorage.getItem('todolist');
+                const list = ref(savedList ? JSON.parse(savedList) : [
+                    {name: '线性代数', completed: false},
+                    {name: '四级英语', completed: false},
+                    {name: '阅读', completed: false}
+                ]);
+                const newItem = ref('');
+
+                
+                function getDate(){
+                    const today = new Date();
+                    const year = today.getFullYear();
+                    const month = today.getMonth() + 1; 
+                    const day = today.getDate(); 
+                    return `${year}年${month}月${day}日`;}
+                
+                const addItem = () => {
+                    if(newItem.value.trim()) {
+                        list.value.push({
+                            name: newItem.value,
+                            completed: false
+                        });
+                        localStorage.setItem('todolist', JSON.stringify(list.value));
+                        newItem.value = '';
+                    }
+                };
+                
+                const removeItem = (index) => {
+                    list.value.splice(index, 1);
+                    localStorage.setItem('todolist', JSON.stringify(list.value));
+                };
+                
+                watch(list, (newList) => {
+                    localStorage.setItem('todolist', JSON.stringify(newList));
+                }, { deep: true });
+
+                return {
+                    list,
+                    newItem,
+                    addItem,
+                    removeItem,
+                    getDate
+                };
+                }
+        }).mount('#app');
+    </script>
+
+    <style>
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        } 
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-sizing: border-box;
+            background-color: rgba(255, 255, 255, 0.75);
+            width: 80%;
+            height: 50px;
+            margin: 8px auto;
+            padding: 16px;
+            border-radius: 20px;
+            box-shadow: rgba(149,157,165,0.2) 0px 8px 20px;
+        }
+        .todo-button {
+            width: 20%;
+            position: relative;
+            height: 50px;
+            border-radius: 0 20px 20px 0;
+            line-height: 50px;
+            background:linear-gradient(to right, rgba(44,114,251,1), rgb(226, 109, 255), rgba(44,114,251,1));
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            color: white;
+            background-size: 400%;
+        }
+        .todo-button:hover {
+            animation: animation 12s linear infinite;
+        }
+        @keyframes animation {
+            from { background-position: 0%; }
+            to { background-position: 400%; }
+        }
+        .todo-button:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+        @media(max-width:768px){
+            .todo-button::before {
+                display: none;
+            }
+        }
+        .todo-button::before {
+            content: ''; 
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            z-index: -1;
+            background: linear-gradient(to right,rgb(116, 192, 255), rgb(109, 148, 255));
+            background-size: 400%;
+            border-radius: 20px;
+            opacity: 0;
+        }
+        .todo-button:hover::before {
+            filter: blur(20px);
+            opacity: 1;
+            animation: animation 12s linear infinite;
+        }
+        .todo-input {
+            margin-bottom: 0;
+            width: 70%;
+            box-sizing: border-box;
+            padding:8px 12px;
+            height: 50px;
+            padding-left: 15px;
+            border: 1px solid #727374;
+            opacity:0.6;
+            outline: none;
+            border-radius: 20px 0 0 20px;
+        }
+        .todo-form {
+            display: flex;
+            justify-content: center;
+            margin: 15px auto;
+            width:90%;
+        }
+        body {
+            background: linear-gradient(to right,rgb(116, 192, 255), rgb(109, 148, 255))no-repeat;
+            min-height:250rem;
+        }
+        .todo-list {
+            width: 94%;
+            min-height: 400px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            padding-top: 20px;
+            box-sizing: border-box;
+            background-color: rgba(186, 241, 255, 0.5);
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            margin:20px auto 0;
+        }
+        .date{
+            font-size: 25px;
+            color: black;
+            text-align: center;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .title {
+            font-size: 60px;
+            color: black;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 700;
+        }
+        .del {
+            cursor: pointer;
+            color: red;
+        }
+    </style>
+        <img src="gxc2.jpg" 
+        style="width: 40%; 
+        height: auto;
+        margin-left: 30%;
+        border-radius: 20px;   
+        padding-top: 50px;" 
+        alt="图片加载失败">
+    </img>
+</body>
+</html>
