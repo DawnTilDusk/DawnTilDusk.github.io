@@ -1,3 +1,27 @@
+document.addEventListener("DOMContentLoaded", () => {
+    const toggleBtn = document.getElementById("toggleProgressBtn");
+    const contentWrapper = document.getElementById("progressContentWrapper");
+    let isExpanded = false; // 初始状态：收回
+
+  // 点击按钮切换状态
+    toggleBtn.addEventListener("click", () => {
+    isExpanded = !isExpanded;
+
+    // 控制内容显示/隐藏
+    if (isExpanded) {
+        contentWrapper.classList.add("show");
+        toggleBtn.classList.add("expanded"); // 按钮添加展开类（箭头旋转）
+    } 
+    else {
+        contentWrapper.classList.remove("show");
+        toggleBtn.classList.remove("expanded"); // 移除展开类（箭头复位）
+    }
+    });
+});
+            
+            
+            
+            
             const progressSectionsContainer = document.getElementById("progressSectionContainer");
             const progressContent = document.getElementById("progressContent");
             const addProgressBtn = document.getElementById("addProgressBtn");
