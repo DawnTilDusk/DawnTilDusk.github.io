@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // 点击事件
     easterEgg.addEventListener("click", (e) => {
+//        const target = e.target;
+//        target.style.display = "none"; // 隐藏元素
         e.preventDefault(); // 阻止默认跳转行为
         
         // 打开新窗口播放视频
