@@ -22,6 +22,18 @@
                 "isDefault": true
             },
             "detail": "调试器生成的任务。"
+        },
+        {
+            "label": "Kotlin: Run active file",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-Command",
+                "kotlinc ${file} -include-runtime -d ${fileDirname}\\${fileBasenameNoExtension}.jar; if ($?) { kotlin ${fileDirname}\\${fileBasenameNoExtension}.jar }"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "编译并用 kotlin 运行当前Kotlin文件，避免主清单属性报错"
         }
     ],
     "version": "2.0.0"
