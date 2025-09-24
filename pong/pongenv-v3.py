@@ -1,7 +1,6 @@
 import pygame
 import numpy as np
 import sys
-import os
 import pickle
 
 class Bot_0:
@@ -153,20 +152,6 @@ class PongEnv:
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         
-        #package
-        if hasattr(sys, '_MEIPASS'):
-            # 打包后的路径：_MEIPASS/assets/bg.png
-            self.bg_path = os.path.join(sys._MEIPASS, 'assets', 'bg.png')
-        else:
-            # 未打包时的路径：当前文件夹/assets/bg.png
-            self.bg_path = os.path.join(os.path.dirname(__file__), 'assets', 'bg.png')
-        try:
-            self.image = pygame.image.load(self.bg_path)
-        except FileNotFoundError:
-            print(f"警告：未找到图片 {self.bg_path}，使用备用背景")
-            self.image = pygame.Surface((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
-            self.image.fill((40, 40, 40))  # 灰色备用背景
-        
         # Load and scale background image
         self.image = pygame.image.load('bg.png')
         self.img_width, self.img_height = self.image.get_size()
@@ -261,7 +246,10 @@ class PongEnv:
             self.pad_y[1] += self.pad_speed[1]
             
         #Simple AI for left paddle
-        self.bot_0.act(1)
+        self.bot_0.act(0)
+        
+        #Q-learning agent for right paddle
+        self.bot.act()
         
         #Ball movement            
         self.ball_x += int(self.ball_speed[0])
@@ -313,7 +301,7 @@ class PongEnv:
         font = pygame.font.SysFont("consolas", 50)
         score_text = font.render(f"{self.left_score}   :   {self.right_score}", True, self.WHITE)
         self.screen.blit(score_text, (self.WINDOW_WIDTH//2 - score_text.get_width()//2, 50 - score_text.get_height()//2))
-        '''
+        
         # -------------------------- 新增：训练进度可视化 --------------------------
         # 1. 初始化小字体（用于指标文本）
         font_small = pygame.font.SysFont("simsun", 18)
@@ -386,7 +374,7 @@ class PongEnv:
             # 绘制折线
             pygame.draw.lines(self.screen, self.BLUE, False, points, 2)
         # -------------------------------------------------------------------------
-        '''
+        
         pygame.display.flip()
         self.clock.tick(80) 
 
@@ -397,11 +385,11 @@ while env.running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             env.running = False
-            #env.bot.save_q_table("q_table.pkl")
+            env.bot.save_q_table("q_table.pkl")
             sys.exit()
-        #if event.type == pygame.KEYDOWN:
-        #    if event.key == pygame.K_F2:
-        #        env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F2:
+                env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
     
     keys = pygame.key.get_pressed()
     if keys[pygame.K_UP] or keys[pygame.K_w]:
