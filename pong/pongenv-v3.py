@@ -2,6 +2,8 @@ import pygame
 import numpy as np
 import sys
 import pickle
+import os
+from datetime import datetime
 
 class Bot_0:
     def __init__(self, env):
@@ -20,7 +22,7 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, alpha=0.1, gamma=0.9, epsilon=0.1):
+    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.1):
         self.env = env
         
         # hyperparameters
@@ -29,7 +31,7 @@ class Bot_Q:
         self.epsilon = epsilon
         self.decaying = 0.999999
         
-        self.Q = np.zeros((2, 2, 5, 5, 3)) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
+        self.Q = np.zeros((2, 2, 21, 21, 3)) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
         
         self.last_state = None
         self.last_action = None
@@ -48,9 +50,9 @@ class Bot_Q:
         l_y_diff = (self.env.pad_y[0] + self.env.pad_height // 2) - self.env.ball_y
         r_y_diff = (self.env.pad_y[1] + self.env.pad_height // 2) - self.env.ball_y
         
-        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 6)
-        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 4)
-        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 4)
+        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 22)
+        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 20)
+        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 20)
         return (ball_x_dir, ball_y_dir, l_y_diff_idx, r_y_diff_idx)
     
     def take_action(self, state):
@@ -66,16 +68,36 @@ class Bot_Q:
             self.Q[last_state][last_action] += self.alpha * (
                 reward + self.gamma * np.max(self.Q[current_state]) - self.Q[last_state][last_action]
             )
+    
+    def L2_reward(self, a, b):
+        return (100 - ((a-b)/100) ** 2) // 5
         
     def calculate_r(self):
         state = self.get_state()
-        
-        # encourage moving towards the ball
-        reward = (100 - ((self.env.pad_y[1] - self.env.pad_width // 2 - self.env.ball_y)/100) ** 2 )//10
         action = self.last_action
         
-        if action is not None and action == 1: #1 stay punishment
-            reward -= 1000
+        # encourage moving towards the ball when ball is moving towards the pad
+        if self.env.ball_speed[0] > 0:
+            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.ball_y)
+        else: 
+            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.WINDOW_HEIGHT // 2)
+            
+        if self.env.pad_y[1] < 50:
+            reward -= 10  # punish stay top
+        
+        elif self.env.pad_y[1] + self.env.pad_height > self.env.WINDOW_HEIGHT - 50:
+            reward -= 10  # punish stay bottom
+        
+        if action is not None:
+            #1 stay punishment and discourage staying when ball is moving away from the pad
+            if action == 1 or (self.env.pad_speed[1] == 0 and self.env.ball_speed[0] <= 0): 
+                reward -= 5
+            # discourage moving away from the ball when ball is moving towards the pad
+            if self.env.ball_speed[0] > 0:
+                pad_center = self.env.pad_y[1] + self.env.pad_height // 2
+                if (self.env.ball_y < pad_center and action == 0) or (self.env.ball_y > pad_center and action == 2):
+                    reward -= 5
+            
             
         if self.env.r_collision():
             reward += 200  # hit right paddle reward
@@ -91,7 +113,7 @@ class Bot_Q:
         
         # record reward history        
         self.reward_history.append(reward)
-        if len(self.reward_history) > 5000:
+        if len(self.reward_history) > 500:
             self.reward_history.pop(0)
         self.total_reward += reward
             
@@ -113,14 +135,14 @@ class Bot_Q:
 
         if versioned:
             # 按时间戳命名（格式：q_table_20240520_1530.pkl）
-            from datetime import datetime
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             path = f"q_table_{timestamp}.pkl"
     
         # 可选：手动确认是否覆盖
-        import os
+        confirm = "y"
         if os.path.exists(path) and not versioned:
             confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+
         if confirm.lower() != "y":
             print("保存取消")
             return
@@ -199,17 +221,16 @@ class PongEnv:
         self.reset()
         
     def update_speed(self, mode, side):
-        if mode == 1:
+        if mode == 1: # up
             self.pad_speed[side] = max(self.pad_speed[side] - self.accellerate, -self.pad_maxspeed)
 #            print(f"Speed: {self.pad_speed[side]}")
-        elif mode == -1:
+        elif mode == -1: # down
             self.pad_speed[side] = min(self.pad_speed[side] + self.accellerate, self.pad_maxspeed)
 #            print(f"Speed: {self.pad_speed[side]}")
-        elif mode == 0:
+        elif mode == 0: # stay
             if self.pad_speed[side] > 0:
-                 self.pad_speed[side] = self.pad_speed[side] - self.decellerate if self.pad_speed[side] - self.decellerate > 0 else 0
-            elif self.pad_speed[side] < 0:
-                 self.pad_speed[side] = self.pad_speed[side] + self.decellerate if self.pad_speed[side] + self.decellerate < 0 else 0
+                 self.pad_speed[side] = max(self.pad_speed[side] - self.decellerate, 0)
+                 self.pad_speed[side] = min(self.pad_speed[side] + self.decellerate, 0)
 #            print(f"Speed: {self.pad_speed[side]}")
     
     # Reset the game state
@@ -281,10 +302,10 @@ class PongEnv:
             check_over = True
             self.bot.trainer_win_cnt += 1
             self.reset()
-            
+        
+        if check_over:    
             self.bot.episode_cnt += 1
             recent_win_rate = self.bot.trainee_win_cnt / min(self.bot.episode_cnt, 10)
-            self.bot.win_rate_history.append(recent_win_rate)
             self.bot.win_rate_history.append(recent_win_rate)
             if len(self.bot.win_rate_history) > 10:
                 self.bot.win_rate_history.pop(0)
@@ -317,7 +338,7 @@ class PongEnv:
             f"近期胜率: {recent_win_rate:.2f}",
             f"平均奖励: {avg_reward:.2f}",
             f"Q表均值: {avg_q_value:.4f}",
-            f"探索率: {self.bot.epsilon:.4f}"
+            f"探索率: {self.bot.epsilon:.6f}"
         ]
         for i, text in enumerate(texts):
             text_surface = font_small.render(text, True, text_color)
