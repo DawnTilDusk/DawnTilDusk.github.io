@@ -168,7 +168,6 @@ class PongEnv:
             self.image.fill((40, 40, 40))  # 灰色备用背景
         
         # Load and scale background image
-        self.image = pygame.image.load('bg.png')
         self.img_width, self.img_height = self.image.get_size()
         self.scale_x = self.WINDOW_WIDTH / self.img_width
         self.scale_y = self.WINDOW_HEIGHT / self.img_height
