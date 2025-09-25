@@ -1,15 +1,7 @@
-#train bot_Q without mu
-'''
-一晚上一早上训练q表
+#this is the training code for the pong environment
 
-1.操作上的小bug，有一个分支不小心删掉了，导致实际操作与预期不符，进而训练白干
+#add mu for paddle friction
 
-2.对手bot和维度没有设计好，有一个维度（对手pad距离球维度因为BOT始终追踪球，导致q表有一个维度失效）几乎只训练到了一个值
-
-3.维度过于离散，只有ball方向和距板距离，决策失误率很高，即使在bot模式如此固定的情况下胜率依然不超过35%
-
-4.q表全零初值，导致argmax一直返回第一个下标（0），所以会有贴底倾向
-'''
 import pygame
 import numpy as np
 import sys
@@ -34,16 +26,18 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.000849):
+    def __init__(self, env, side = 1, alpha=0.2, gamma=0.9, epsilon=0.01, decaying = 0.9999):
         self.env = env
+        self.side = side
         
         # hyperparameters
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
-        self.decaying = 0.999999
+        self.decaying = decaying
         
-        self.Q = np.random.rand(2, 2, 21, 21, 3) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
+        self.Q = np.random.rand(5, 5, 10, 10, 10, 10, 3) 
+        #state: ball_dx, ball_dy, ball_x, ball_y, l_y, r_y; action: down, stay, up
         
         self.last_state = None
         self.last_action = None
@@ -55,18 +49,24 @@ class Bot_Q:
         self.recent_win_history = []
         self.reward_history = []  
         self.win_rate_history = [] 
-        self.total_reward = 0  
+        self.total_reward = 0
+        
+    def diff(self, val, st, ed, n):
+        dist = ed - st
+        step = dist / (n - 1)
+        idx = (val - st) // step
+        idx = int(idx)
+        idx = max(0, min(idx, n - 1))
+        return idx; 
         
     def get_state(self):
-        ball_x_dir = 1 if self.env.ball_speed[0] > 0 else 0
-        ball_y_dir = 1 if self.env.ball_speed[1] > 0 else 0
-        l_y_diff = (self.env.pad_y[0] + self.env.pad_height // 2) - self.env.ball_y
-        r_y_diff = (self.env.pad_y[1] + self.env.pad_height // 2) - self.env.ball_y
-        
-        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 22)
-        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 20)
-        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 20)
-        return (ball_x_dir, ball_y_dir, l_y_diff_idx, r_y_diff_idx)
+        ball_dx = self.diff(self.env.ball_speed[0], -self.env.ball_maxspeed, self.env.ball_maxspeed, 5)
+        ball_dy = self.diff(self.env.ball_speed[1], -self.env.ball_maxspeed, self.env.ball_maxspeed, 5)
+        ball_x = self.diff(self.env.ball_x, 0, self.env.WINDOW_WIDTH, 10)
+        ball_y = self.diff(self.env.ball_y, 0, self.env.WINDOW_HEIGHT, 10)
+        l_y = self.diff(self.env.pad_y[0], 0, self.env.WINDOW_HEIGHT, 10)
+        r_y = self.diff(self.env.pad_y[1], 0, self.env.WINDOW_HEIGHT, 10)
+        return (ball_dx, ball_dy, ball_x, ball_y, l_y, r_y)
     
     def take_action(self, state):
         if np.random.uniform(0, 1) < self.epsilon:
@@ -88,41 +88,48 @@ class Bot_Q:
     def calculate_r(self):
         state = self.get_state()
         action = self.last_action
+        current_pad_y = self.env.pad_y[self.side]  # 当前 Bot 控制的挡板Y坐标
+        current_pad_center = current_pad_y + self.env.pad_height // 2  # 当前挡板中心坐标
         
         # encourage moving towards the ball when ball is moving towards the pad
-        if self.env.ball_speed[0] > 0:
-            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.ball_y)
+        if (self.side == 0 and self.env.ball_speed[0] < 0) or (self.side == 1 and self.env.ball_speed[0] > 0):
+            # 球向当前挡板飞来：奖励靠近球（L2距离）
+            reward = self.L2_reward(current_pad_center, self.env.ball_y)
         else: 
-            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.WINDOW_HEIGHT // 2)
+            reward = self.L2_reward(current_pad_center, self.env.WINDOW_HEIGHT // 2)
             
-        if self.env.pad_y[1] < 50:
-            reward -= 10  # punish stay top
-        
-        elif self.env.pad_y[1] + self.env.pad_height > self.env.WINDOW_HEIGHT - 50:
-            reward -= 10  # punish stay bottom
+        if current_pad_y < 50:
+            reward -= 10  # 惩罚当前挡板贴顶
+        elif current_pad_y + self.env.pad_height > self.env.WINDOW_HEIGHT - 50:
+            reward -= 10  # 惩罚当前挡板贴底
         
         if action is not None:
             #1 stay punishment and discourage staying when ball is moving away from the pad
-            if action == 1 or (self.env.pad_speed[1] == 0 and self.env.ball_speed[0] <= 0): 
+            if action == 1 or (self.env.pad_speed[self.side] == 0 and 
+                ((self.side == 0 and self.env.ball_speed[0] <= 0) or (self.side == 1 and self.env.ball_speed[0] >= 0))):
                 reward -= 5
             # discourage moving away from the ball when ball is moving towards the pad
-            if self.env.ball_speed[0] > 0:
-                pad_center = self.env.pad_y[1] + self.env.pad_height // 2
-                if (self.env.ball_y < pad_center and action == 0) or (self.env.ball_y > pad_center and action == 2):
+            if (self.side == 0 and self.env.ball_speed[0] < 0) or (self.side == 1 and self.env.ball_speed[0] > 0):
+                if (self.env.ball_y < current_pad_center and action == 0) or (self.env.ball_y > current_pad_center and action == 2):
                     reward -= 5
             
             
-        if self.env.r_collision():
-            reward += 200  # hit right paddle reward
+        if (self.side == 0 and self.env.l_collision()):
+            reward += 200  # 左侧挡板击中球，奖励
+        elif (self.side == 1 and self.env.r_collision()):
+            reward += 200  # 右侧挡板击中球，奖励
             
-        elif self.env.l_collision():
-            reward -= 10  # hit left paddle punishment
-        
-        if self.env.ball_x < self.env.pad_width:
-            reward += 50  # ball went out of left side reward
+        if (self.side == 0 and self.env.r_collision()) or (self.side == 1 and self.env.l_collision()):
+            reward -= 10  # 惩罚对方挡板击中球
 
-        elif self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
-            reward -= 200  # ball went out of right side punishment
+        if self.side == 0 and self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
+            reward += 50  # 左侧 Bot 得分（球从右侧出界）
+        elif self.side == 1 and self.env.ball_x < self.env.pad_width:
+            reward += 50  # 右侧 Bot 得分（球从左侧出界）
+        if self.side == 0 and self.env.ball_x < self.env.pad_width:
+            reward -= 200  # 左侧 Bot 失分（球从左侧出界）
+        elif self.side == 1 and self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
+            reward -= 200  # 右侧 Bot 失分（球从右侧出界）
         
         # record reward history        
         self.reward_history.append(reward)
@@ -135,21 +142,47 @@ class Bot_Q:
     def act(self):
         current_state = self.get_state()
         action = self.take_action(current_state)
-        self.env.update_speed(action-1, 1)
+        
+        self.env.update_speed(action-1, self.side)
+        #if self.side == 0: 
+        #    print(f"check: mode = {action-1}, speed = {self.env.pad_speed[0]}")
+        
         reward = self.calculate_r()
         self.update_Q(self.last_state, self.last_action, reward, current_state)
         
         self.last_state = current_state
         self.last_action = action
         
-    def save_q_table(self, path="q_table-v3.pkl", versioned=False):
+    def save_q_table(self, path="q_table-v4(mu).pkl", versioned=False):
 #        保存Q表，支持版本化（避免覆盖）
 #        :param versioned: 是否按时间戳生成版本（True：不覆盖，False：覆盖原文件）
 
         if versioned:
-            # 按时间戳命名（格式：q_table-v3_20240520_1530.pkl）
+            # 按时间戳命名（格式：q_table_20240520_1530.pkl）
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            path = f"q_table-v3_{timestamp}.pkl"
+            path = f"q_table-v4(mu)_{timestamp}.pkl"
+    
+        # 可选：手动确认是否覆盖
+        confirm = "y"
+        if os.path.exists(path) and not versioned:
+            confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+
+        if confirm.lower() != "y":
+            print("保存取消")
+            return
+    
+        with open(path, "wb") as f:
+            pickle.dump(self.Q, f)
+        print(f"Q表已保存到 {path}")
+        
+    def save_q_table_left(self, path="q_table-v4(mu)-left.pkl", versioned=False):
+#        保存Q表，支持版本化（避免覆盖）
+#        :param versioned: 是否按时间戳生成版本（True：不覆盖，False：覆盖原文件）
+
+        if versioned:
+            # 按时间戳命名（格式：q_table_20240520_1530.pkl）
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            path = f"q_table-v4(mu)-left_{timestamp}.pkl"
     
         # 可选：手动确认是否覆盖
         confirm = "y"
@@ -164,7 +197,7 @@ class Bot_Q:
             pickle.dump(self.Q, f)
         print(f"Q表已保存到 {path}")
     
-    def load_q_table(self, path="q_table-v3.pkl"):
+    def load_q_table(self, path="q_table-v4(mu).pkl"):
         """从本地文件加载 Q 表"""
         try:
             with open(path, "rb") as f:
@@ -174,6 +207,17 @@ class Bot_Q:
             #self.epsilon = max(0.01, self.epsilon * 0.1)
         except FileNotFoundError:
             print(f"未找到 {path}，将使用新的 Q 表")
+            
+    def load_q_table_left(self, path="q_table-v4(mu)-left.pkl"):
+        """从本地文件加载 Q 表(left)"""
+        try:
+            with open(path, "rb") as f:
+                self.Q = pickle.load(f)
+            print(f"已从 {path} 加载 left Q 表")
+            # 加载后可降低探索率，减少随机动作
+            #self.epsilon = max(0.01, self.epsilon * 0.1)
+        except FileNotFoundError:
+            print(f"未找到 {path}，将使用新的 left Q 表")
         
         
 
@@ -182,7 +226,7 @@ class PongEnv:
     def __init__(self):
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("pong-v3")
+        pygame.display.set_caption("pong-v4(mu)")
         self.running = True
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -216,8 +260,10 @@ class PongEnv:
         self.pad_speed = [0, 0]
         self.accellerate = 0.8
         self.decellerate = 1.2
+        self.mu = 0.3
         
         #ball
+        self.ball_maxspeed = 20
         self.ball_radius = 10
         self.factor = 1.1
         
@@ -226,8 +272,9 @@ class PongEnv:
         self.right_score = 0
         
         #bots
-        self.bot_0 = Bot_0(self)
-        self.bot = Bot_Q(self)
+        self.bot_left = Bot_Q(self, side = 0, alpha = 0.3, epsilon = 0.3)
+        self.bot_left.load_q_table_left()
+        self.bot = Bot_Q(self, side = 1, alpha = 0.15, epsilon = 0.15)
         self.bot.load_q_table()
         
         #reset
@@ -246,10 +293,13 @@ class PongEnv:
             elif self.pad_speed[side] < 0:
                  self.pad_speed[side] = min(self.pad_speed[side] + self.decellerate, 0)
 #            print(f"Speed: {self.pad_speed[side]}")
+        #if side == 0:
+             #print(f"左侧 Bot(side={side}) mode:{mode} speed:{self.pad_speed[side]}")
+        
     
     # Reset the game state
     def reset(self):
-        self.pad_y = [(self.WINDOW_HEIGHT - self.pad_height) // 2, (self.WINDOW_HEIGHT - self.pad_height) // 2]
+        self.pad_y = [self.WINDOW_HEIGHT // 2 - self.pad_height, self.WINDOW_HEIGHT // 2 - self.pad_height]
         self.ball_x = self.WINDOW_WIDTH // 2    
         self.ball_y = self.WINDOW_HEIGHT // 2
         self.ball_speed = [5 * np.random.choice([-1, 1]), 5 * np.random.uniform(-1, 1)]
@@ -260,6 +310,12 @@ class PongEnv:
    
     def r_collision(self):
         return self.ball_x > self.pad_x[1] - self.pad_width and self.ball_y + self.ball_radius > self.pad_y[1] and self.ball_y - self.ball_radius < self.pad_y[1] + self.pad_height
+         
+    def cap(self, val, max_val):
+        if val > 0:
+            return min(val, max_val)
+        else:
+            return max(val, -max_val)
          
     def step(self):
         if not self.running:
@@ -280,9 +336,8 @@ class PongEnv:
         else:
             self.pad_y[1] += self.pad_speed[1]
             
-        #Simple AI for left paddle
-        self.bot_0.act(0)
-        
+        #Q-learning agent for left paddle
+        self.bot_left.act()
         #Q-learning agent for right paddle
         self.bot.act()
         
@@ -293,13 +348,17 @@ class PongEnv:
         #Paddle bounce back    
         if self.l_collision():
             self.ball_speed[0] = -self.ball_speed[0] * self.factor
-            self.ball_speed[1] += np.random.uniform(-3, 3)
+            self.ball_speed[1] += self.pad_speed[0] * self.mu
         if self.r_collision():
             self.ball_speed[0] = -self.ball_speed[0] * self.factor
-            self.ball_speed[1] += np.random.uniform(-3, 3)
+            self.ball_speed[1] += self.pad_speed[1] * self.mu
         
         if self.ball_y < 0 or self.ball_y > self.WINDOW_HEIGHT:
             self.ball_speed[1] = -self.ball_speed[1]
+            
+        # Speed cap
+        self.ball_speed[0] = self.cap(self.ball_speed[0], self.ball_maxspeed)
+        self.ball_speed[1] = self.cap(self.ball_speed[1], self.ball_maxspeed)
         
         # Score update and episode end check
         check_over = False 
@@ -342,7 +401,12 @@ class PongEnv:
         font = pygame.font.SysFont("consolas", 50)
         score_text = font.render(f"{self.left_score}   :   {self.right_score}", True, self.WHITE)
         self.screen.blit(score_text, (self.WINDOW_WIDTH//2 - score_text.get_width()//2, 50 - score_text.get_height()//2))
+        self.visualize()
         
+        pygame.display.flip()
+        self.clock.tick(80) 
+        
+    def visualize(self):
         # -------------------------- 新增：训练进度可视化 --------------------------
         # 1. 初始化小字体（用于指标文本）
         font_small = pygame.font.SysFont("simsun", 18)
@@ -415,32 +479,45 @@ class PongEnv:
             # 绘制折线
             pygame.draw.lines(self.screen, self.BLUE, False, points, 2)
         # -------------------------------------------------------------------------
-        
-        pygame.display.flip()
-        self.clock.tick(80) 
 
 
 env = PongEnv()
+manned = False
 while env.running:
     action = 0
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             env.running = False
-            env.bot.save_q_table("q_table-v3.pkl")
+            env.bot.save_q_table("q_table-v4(mu).pkl")
+            env.bot.save_q_table_left("q_table-v4(mu)-left.pkl")
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
                 env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
+                env.bot.save_q_table_left(versioned=True)
+            if event.key == pygame.K_F4:
+                manned = not manned
     
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_UP] or keys[pygame.K_w]:
-        env.update_speed(1, 0)
-    elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-        env.update_speed(-1, 0)
-    else:
-        env.update_speed(0, 0)
+    if manned:
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            env.update_speed(1, 0)
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            env.update_speed(-1, 0)
+        else:
+            env.update_speed(0, 0)
     
     env.step()
+    if env.bot.episode_cnt % 50 == 0 and env.bot.episode_cnt > 0:
+        env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
+        env.bot.save_q_table_left(versioned=True)
     env.render()
+    
+    
+    #for training
+    #env.screen.fill(env.BLACK)
+    #env.visualize()
+    #pygame.display.flip()
+    #env.clock.tick(80)
           
 pygame.quit()
