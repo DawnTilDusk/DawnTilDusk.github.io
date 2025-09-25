@@ -149,7 +149,7 @@ class PongEnv:
     def __init__(self):
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("pong")
+        pygame.display.set_caption("pong-v2")
         self.running = True
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()

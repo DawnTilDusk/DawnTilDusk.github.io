@@ -1,4 +1,15 @@
-#train bot_Q with no mu
+#train bot_Q without mu
+'''
+一晚上一早上训练q表
+
+1.操作上的小bug，有一个分支不小心删掉了，导致实际操作与预期不符，进而训练白干
+
+2.对手bot和维度没有设计好，有一个维度（对手pad距离球维度因为BOT始终追踪球，导致q表有一个维度失效）几乎只训练到了一个值
+
+3.维度过于离散，只有ball方向和距板距离，决策失误率很高，即使在bot模式如此固定的情况下胜率依然不超过35%
+
+4.q表全零初值，导致argmax一直返回第一个下标（0），所以会有贴底倾向
+'''
 import pygame
 import numpy as np
 import sys
@@ -131,14 +142,14 @@ class Bot_Q:
         self.last_state = current_state
         self.last_action = action
         
-    def save_q_table(self, path="q_table.pkl", versioned=False):
+    def save_q_table(self, path="q_table-v3.pkl", versioned=False):
 #        保存Q表，支持版本化（避免覆盖）
 #        :param versioned: 是否按时间戳生成版本（True：不覆盖，False：覆盖原文件）
 
         if versioned:
-            # 按时间戳命名（格式：q_table_20240520_1530.pkl）
+            # 按时间戳命名（格式：q_table-v3_20240520_1530.pkl）
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-            path = f"q_table_{timestamp}.pkl"
+            path = f"q_table-v3_{timestamp}.pkl"
     
         # 可选：手动确认是否覆盖
         confirm = "y"
@@ -153,7 +164,7 @@ class Bot_Q:
             pickle.dump(self.Q, f)
         print(f"Q表已保存到 {path}")
     
-    def load_q_table(self, path="q_table.pkl"):
+    def load_q_table(self, path="q_table-v3.pkl"):
         """从本地文件加载 Q 表"""
         try:
             with open(path, "rb") as f:
@@ -171,7 +182,7 @@ class PongEnv:
     def __init__(self):
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("pong")
+        pygame.display.set_caption("pong-v3")
         self.running = True
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -232,6 +243,7 @@ class PongEnv:
         elif mode == 0: # stay
             if self.pad_speed[side] > 0:
                  self.pad_speed[side] = max(self.pad_speed[side] - self.decellerate, 0)
+            elif self.pad_speed[side] < 0:
                  self.pad_speed[side] = min(self.pad_speed[side] + self.decellerate, 0)
 #            print(f"Speed: {self.pad_speed[side]}")
     
@@ -414,7 +426,7 @@ while env.running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             env.running = False
-            env.bot.save_q_table("q_table.pkl")
+            env.bot.save_q_table("q_table-v3.pkl")
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
