@@ -22,7 +22,7 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.1):
+    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.000849):
         self.env = env
         
         # hyperparameters
@@ -37,9 +37,10 @@ class Bot_Q:
         self.last_action = None
         
         #trace for visualization
+        self.win_rate_max_episode = 50
         self.episode_cnt = 0 
-        self.trainer_win_cnt = 0 
-        self.trainee_win_cnt = 0
+        self.recent_win_rate = 0.000
+        self.recent_win_history = []
         self.reward_history = []  
         self.win_rate_history = [] 
         self.total_reward = 0  
@@ -105,10 +106,10 @@ class Bot_Q:
         elif self.env.l_collision():
             reward -= 10  # hit left paddle punishment
         
-        if self.env.ball_x < 0:
+        if self.env.ball_x < self.env.pad_width:
             reward += 50  # ball went out of left side reward
 
-        elif self.env.ball_x > self.env.WINDOW_WIDTH:
+        elif self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
             reward -= 200  # ball went out of right side punishment
         
         # record reward history        
@@ -158,7 +159,7 @@ class Bot_Q:
                 self.Q = pickle.load(f)
             print(f"已从 {path} 加载 Q 表")
             # 加载后可降低探索率，减少随机动作
-            self.epsilon = max(0.01, self.epsilon * 0.1)
+            #self.epsilon = max(0.01, self.epsilon * 0.1)
         except FileNotFoundError:
             print(f"未找到 {path}，将使用新的 Q 表")
         
@@ -291,23 +292,29 @@ class PongEnv:
         check_over = False 
         if self.ball_x < 0:
             self.right_score += 1
+            self.bot.recent_win_history.append(1)
+            if len(self.bot.recent_win_history) > 10:
+                self.bot.recent_win_history.pop(0)
+                
             print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
-            self.bot.trainee_win_cnt += 1
             self.reset()
         
         elif self.ball_x > self.WINDOW_WIDTH:
             self.left_score += 1
+            self.bot.recent_win_history.append(0)
+            if len(self.bot.recent_win_history) > self.bot.win_rate_max_episode:
+                self.bot.recent_win_history.pop(0)
+                
             print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
-            self.bot.trainer_win_cnt += 1
             self.reset()
         
         if check_over:    
             self.bot.episode_cnt += 1
-            recent_win_rate = self.bot.trainee_win_cnt / min(self.bot.episode_cnt, 10)
-            self.bot.win_rate_history.append(recent_win_rate)
-            if len(self.bot.win_rate_history) > 10:
+            self.bot.recent_win_rate = sum(self.bot.recent_win_history) / min(self.bot.episode_cnt, self.bot.win_rate_max_episode)
+            self.bot.win_rate_history.append(self.bot.recent_win_rate)
+            if len(self.bot.win_rate_history) > self.bot.win_rate_max_episode:
                 self.bot.win_rate_history.pop(0)
 
     def render(self):
@@ -329,13 +336,13 @@ class PongEnv:
         # 2. 计算关键指标
         avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
         avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
-        recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
+        #recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
         
         # 3. 绘制指标文本（左上角排列）
         text_color = self.WHITE
         texts = [
             f"回合数: {self.bot.episode_cnt}",
-            f"近期胜率: {recent_win_rate:.2f}",
+            f"近期胜率: {self.bot.recent_win_rate:.2f}",
             f"平均奖励: {avg_reward:.2f}",
             f"Q表均值: {avg_q_value:.4f}",
             f"探索率: {self.bot.epsilon:.6f}"
