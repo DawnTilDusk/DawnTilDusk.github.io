@@ -1,3 +1,4 @@
+#train bot_Q with no mu
 import pygame
 import numpy as np
 import sys

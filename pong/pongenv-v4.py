@@ -1,9 +1,11 @@
-#person vs bot0
+#add mu for paddle friction
+
 import pygame
 import numpy as np
 import sys
-import os
 import pickle
+import os
+from datetime import datetime
 
 class Bot_0:
     def __init__(self, env):
@@ -22,7 +24,7 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, alpha=0.1, gamma=0.9, epsilon=0.1):
+    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.000849):
         self.env = env
         
         # hyperparameters
@@ -31,15 +33,16 @@ class Bot_Q:
         self.epsilon = epsilon
         self.decaying = 0.999999
         
-        self.Q = np.zeros((2, 2, 5, 5, 3)) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
+        self.Q = np.zeros((2, 2, 21, 21, 3)) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
         
         self.last_state = None
         self.last_action = None
         
         #trace for visualization
+        self.win_rate_max_episode = 50
         self.episode_cnt = 0 
-        self.trainer_win_cnt = 0 
-        self.trainee_win_cnt = 0
+        self.recent_win_rate = 0.000
+        self.recent_win_history = []
         self.reward_history = []  
         self.win_rate_history = [] 
         self.total_reward = 0  
@@ -50,9 +53,9 @@ class Bot_Q:
         l_y_diff = (self.env.pad_y[0] + self.env.pad_height // 2) - self.env.ball_y
         r_y_diff = (self.env.pad_y[1] + self.env.pad_height // 2) - self.env.ball_y
         
-        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 6)
-        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 4)
-        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 4)
+        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 22)
+        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 20)
+        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 20)
         return (ball_x_dir, ball_y_dir, l_y_diff_idx, r_y_diff_idx)
     
     def take_action(self, state):
@@ -68,16 +71,36 @@ class Bot_Q:
             self.Q[last_state][last_action] += self.alpha * (
                 reward + self.gamma * np.max(self.Q[current_state]) - self.Q[last_state][last_action]
             )
+    
+    def L2_reward(self, a, b):
+        return (100 - ((a-b)/100) ** 2) // 5
         
     def calculate_r(self):
         state = self.get_state()
-        
-        # encourage moving towards the ball
-        reward = (100 - ((self.env.pad_y[1] - self.env.pad_width // 2 - self.env.ball_y)/100) ** 2 )//10
         action = self.last_action
         
-        if action is not None and action == 1: #1 stay punishment
-            reward -= 1000
+        # encourage moving towards the ball when ball is moving towards the pad
+        if self.env.ball_speed[0] > 0:
+            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.ball_y)
+        else: 
+            reward = self.L2_reward(self.env.pad_y[1] + self.env.pad_height // 2, self.env.WINDOW_HEIGHT // 2)
+            
+        if self.env.pad_y[1] < 50:
+            reward -= 10  # punish stay top
+        
+        elif self.env.pad_y[1] + self.env.pad_height > self.env.WINDOW_HEIGHT - 50:
+            reward -= 10  # punish stay bottom
+        
+        if action is not None:
+            #1 stay punishment and discourage staying when ball is moving away from the pad
+            if action == 1 or (self.env.pad_speed[1] == 0 and self.env.ball_speed[0] <= 0): 
+                reward -= 5
+            # discourage moving away from the ball when ball is moving towards the pad
+            if self.env.ball_speed[0] > 0:
+                pad_center = self.env.pad_y[1] + self.env.pad_height // 2
+                if (self.env.ball_y < pad_center and action == 0) or (self.env.ball_y > pad_center and action == 2):
+                    reward -= 5
+            
             
         if self.env.r_collision():
             reward += 200  # hit right paddle reward
@@ -85,15 +108,15 @@ class Bot_Q:
         elif self.env.l_collision():
             reward -= 10  # hit left paddle punishment
         
-        if self.env.ball_x < 0:
+        if self.env.ball_x < self.env.pad_width:
             reward += 50  # ball went out of left side reward
 
-        elif self.env.ball_x > self.env.WINDOW_WIDTH:
+        elif self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
             reward -= 200  # ball went out of right side punishment
         
         # record reward history        
         self.reward_history.append(reward)
-        if len(self.reward_history) > 5000:
+        if len(self.reward_history) > 500:
             self.reward_history.pop(0)
         self.total_reward += reward
             
@@ -115,14 +138,14 @@ class Bot_Q:
 
         if versioned:
             # 按时间戳命名（格式：q_table_20240520_1530.pkl）
-            from datetime import datetime
             timestamp = datetime.now().strftime("%Y%m%d_%H%M")
             path = f"q_table_{timestamp}.pkl"
     
         # 可选：手动确认是否覆盖
-        import os
+        confirm = "y"
         if os.path.exists(path) and not versioned:
             confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+
         if confirm.lower() != "y":
             print("保存取消")
             return
@@ -138,7 +161,7 @@ class Bot_Q:
                 self.Q = pickle.load(f)
             print(f"已从 {path} 加载 Q 表")
             # 加载后可降低探索率，减少随机动作
-            self.epsilon = max(0.01, self.epsilon * 0.1)
+            #self.epsilon = max(0.01, self.epsilon * 0.1)
         except FileNotFoundError:
             print(f"未找到 {path}，将使用新的 Q 表")
         
@@ -154,21 +177,8 @@ class PongEnv:
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         
-        #package
-        if hasattr(sys, '_MEIPASS'):
-            # 打包后的路径：_MEIPASS/assets/bg.png
-            self.bg_path = os.path.join(sys._MEIPASS, 'assets', 'bg.png')
-        else:
-            # 未打包时的路径：当前文件夹/assets/bg.png
-            self.bg_path = os.path.join(os.path.dirname(__file__), 'assets', 'bg.png')
-        try:
-            self.image = pygame.image.load(self.bg_path)
-        except FileNotFoundError:
-            print(f"警告：未找到图片 {self.bg_path}，使用备用背景")
-            self.image = pygame.Surface((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
-            self.image.fill((40, 40, 40))  # 灰色备用背景
-        
         # Load and scale background image
+        self.image = pygame.image.load('bg.png')
         self.img_width, self.img_height = self.image.get_size()
         self.scale_x = self.WINDOW_WIDTH / self.img_width
         self.scale_y = self.WINDOW_HEIGHT / self.img_height
@@ -196,6 +206,7 @@ class PongEnv:
         self.pad_speed = [0, 0]
         self.accellerate = 0.8
         self.decellerate = 1.2
+        self.mu = 0.1
         
         #ball
         self.ball_radius = 10
@@ -214,17 +225,16 @@ class PongEnv:
         self.reset()
         
     def update_speed(self, mode, side):
-        if mode == 1:
+        if mode == 1: # up
             self.pad_speed[side] = max(self.pad_speed[side] - self.accellerate, -self.pad_maxspeed)
 #            print(f"Speed: {self.pad_speed[side]}")
-        elif mode == -1:
+        elif mode == -1: # down
             self.pad_speed[side] = min(self.pad_speed[side] + self.accellerate, self.pad_maxspeed)
 #            print(f"Speed: {self.pad_speed[side]}")
-        elif mode == 0:
+        elif mode == 0: # stay
             if self.pad_speed[side] > 0:
-                 self.pad_speed[side] = self.pad_speed[side] - self.decellerate if self.pad_speed[side] - self.decellerate > 0 else 0
-            elif self.pad_speed[side] < 0:
-                 self.pad_speed[side] = self.pad_speed[side] + self.decellerate if self.pad_speed[side] + self.decellerate < 0 else 0
+                 self.pad_speed[side] = max(self.pad_speed[side] - self.decellerate, 0)
+                 self.pad_speed[side] = min(self.pad_speed[side] + self.decellerate, 0)
 #            print(f"Speed: {self.pad_speed[side]}")
     
     # Reset the game state
@@ -261,7 +271,10 @@ class PongEnv:
             self.pad_y[1] += self.pad_speed[1]
             
         #Simple AI for left paddle
-        self.bot_0.act(1)
+        self.bot_0.act(0)
+        
+        #Q-learning agent for right paddle
+        self.bot.act()
         
         #Ball movement            
         self.ball_x += int(self.ball_speed[0])
@@ -270,10 +283,10 @@ class PongEnv:
         #Paddle bounce back    
         if self.l_collision():
             self.ball_speed[0] = -self.ball_speed[0] * self.factor
-            self.ball_speed[1] += np.random.uniform(-3, 3)
+            self.ball_speed[1] += self.pad_speed[0] * self.mu
         if self.r_collision():
             self.ball_speed[0] = -self.ball_speed[0] * self.factor
-            self.ball_speed[1] += np.random.uniform(-3, 3)
+            self.ball_speed[1] += self.pad_speed[1] * self.mu
         
         if self.ball_y < 0 or self.ball_y > self.WINDOW_HEIGHT:
             self.ball_speed[1] = -self.ball_speed[1]
@@ -282,23 +295,29 @@ class PongEnv:
         check_over = False 
         if self.ball_x < 0:
             self.right_score += 1
+            self.bot.recent_win_history.append(1)
+            if len(self.bot.recent_win_history) > 10:
+                self.bot.recent_win_history.pop(0)
+                
             print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
-            self.bot.trainee_win_cnt += 1
             self.reset()
         
         elif self.ball_x > self.WINDOW_WIDTH:
             self.left_score += 1
+            self.bot.recent_win_history.append(0)
+            if len(self.bot.recent_win_history) > self.bot.win_rate_max_episode:
+                self.bot.recent_win_history.pop(0)
+                
             print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
-            self.bot.trainer_win_cnt += 1
             self.reset()
-            
+        
+        if check_over:    
             self.bot.episode_cnt += 1
-            recent_win_rate = self.bot.trainee_win_cnt / min(self.bot.episode_cnt, 10)
-            self.bot.win_rate_history.append(recent_win_rate)
-            self.bot.win_rate_history.append(recent_win_rate)
-            if len(self.bot.win_rate_history) > 10:
+            self.bot.recent_win_rate = sum(self.bot.recent_win_history) / min(self.bot.episode_cnt, self.bot.win_rate_max_episode)
+            self.bot.win_rate_history.append(self.bot.recent_win_rate)
+            if len(self.bot.win_rate_history) > self.bot.win_rate_max_episode:
                 self.bot.win_rate_history.pop(0)
 
     def render(self):
@@ -313,23 +332,23 @@ class PongEnv:
         font = pygame.font.SysFont("consolas", 50)
         score_text = font.render(f"{self.left_score}   :   {self.right_score}", True, self.WHITE)
         self.screen.blit(score_text, (self.WINDOW_WIDTH//2 - score_text.get_width()//2, 50 - score_text.get_height()//2))
-        '''
+        
         # -------------------------- 新增：训练进度可视化 --------------------------
         # 1. 初始化小字体（用于指标文本）
         font_small = pygame.font.SysFont("simsun", 18)
         # 2. 计算关键指标
         avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
         avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
-        recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
+        #recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
         
         # 3. 绘制指标文本（左上角排列）
         text_color = self.WHITE
         texts = [
             f"回合数: {self.bot.episode_cnt}",
-            f"近期胜率: {recent_win_rate:.2f}",
+            f"近期胜率: {self.bot.recent_win_rate:.2f}",
             f"平均奖励: {avg_reward:.2f}",
             f"Q表均值: {avg_q_value:.4f}",
-            f"探索率: {self.bot.epsilon:.4f}"
+            f"探索率: {self.bot.epsilon:.6f}"
         ]
         for i, text in enumerate(texts):
             text_surface = font_small.render(text, True, text_color)
@@ -386,7 +405,7 @@ class PongEnv:
             # 绘制折线
             pygame.draw.lines(self.screen, self.BLUE, False, points, 2)
         # -------------------------------------------------------------------------
-        '''
+        
         pygame.display.flip()
         self.clock.tick(80) 
 
@@ -397,11 +416,11 @@ while env.running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             env.running = False
-            #env.bot.save_q_table("q_table.pkl")
+            env.bot.save_q_table("q_table.pkl")
             sys.exit()
-        #if event.type == pygame.KEYDOWN:
-        #    if event.key == pygame.K_F2:
-        #        env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F2:
+                env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
     
     keys = pygame.key.get_pressed()
     if keys[pygame.K_UP] or keys[pygame.K_w]:
