@@ -6,6 +6,7 @@ import sys
 import pickle
 import os
 from datetime import datetime
+import matplotlib
 
 class Bot_0:
     def __init__(self, env):
@@ -24,7 +25,7 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, side = 1, alpha=0.05, gamma=0.9, epsilon=0.01, decaying = 0.9999):
+    def __init__(self, env, side = 1, alpha=0.05, gamma=0.9, epsilon=0.01, decaying = 0.99999995):
         self.env = env
         self.side = side
         
@@ -162,8 +163,8 @@ class Bot_Q:
     
         # 可选：手动确认是否覆盖
         confirm = "y"
-        if os.path.exists(path) and not versioned:
-            confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+        #if os.path.exists(path) and not versioned:
+            #confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
 
         if confirm.lower() != "y":
             print("保存取消")
@@ -184,8 +185,8 @@ class Bot_Q:
     
         # 可选：手动确认是否覆盖
         confirm = "y"
-        if os.path.exists(path) and not versioned:
-            confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+        #if os.path.exists(path) and not versioned:
+            #confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
 
         if confirm.lower() != "y":
             print("保存取消")
@@ -270,10 +271,23 @@ class PongEnv:
         self.right_score = 0
         
         #bots
-        self.bot_left = Bot_Q(self, side = 0, alpha = 0.3, epsilon = 0.3, decaying = 1)
+        self.switch = False
+        self.last_switch_episode = -1
+        self.bot_type = "bot_0"
+        self.bot_0 = Bot_0(self)
+        self.bot_left = Bot_Q(self, side = 0, alpha = 0.3, epsilon = 0.3)
         self.bot_left.load_q_table_left()
-        self.bot = Bot_Q(self, side = 1, alpha = 0.2, epsilon = 0.1, decaying = 1)
+        self.bot = Bot_Q(self, side = 1, alpha = 0.2, epsilon = 0)
         self.bot.load_q_table()
+        
+        #save and history
+        self.last_step_episode = -1
+        self.last_save_episode = -1
+        self.FP_avg_q_value_history = []
+        self.FP_avg_reward_history = []
+        self.FP_recent_win_rate_history = []
+        self.FP_epsilon_history = []
+        self.FP_episode_cnt_history = []
         
         #reset
         self.reset()
@@ -319,25 +333,38 @@ class PongEnv:
         if not self.running:
             return
         
+        #mixed agent for left paddle 
+        if self.bot.episode_cnt % 100 == 0 and self.bot.episode_cnt != self.last_switch_episode and self.bot.episode_cnt > 0:
+            self.switch = not self.switch
+            self.last_switch_episode = self.bot.episode_cnt
+            print(f"陪练切换：当前为{self.bot_type}（回合数：{self.bot.episode_cnt}）")
+        
+        if not manned:    
+            if self.switch:
+                self.bot_left.act()
+                self.bot_type = "bot_Q"
+            else : 
+                self.bot_0.act(0)
+                self.bot_type = "bot_0"
+        
+        #Q-learning agent for right paddle
+        self.bot.act()
+        
         #Paddle movement
-        if  self.pad_y[0] + self.pad_speed[0] < 0:
-            self.pad_y[0] = 0
-        elif self.pad_y[0] + self.pad_speed[0] > self.WINDOW_HEIGHT - self.pad_height:
-            self.pad_y[0] = self.WINDOW_HEIGHT - self.pad_height
-        else:
-            self.pad_y[0] += self.pad_speed[0]
-            
+        if self.switch or manned: 
+            if  self.pad_y[0] + self.pad_speed[0] < 0:
+                self.pad_y[0] = 0
+            elif self.pad_y[0] + self.pad_speed[0] > self.WINDOW_HEIGHT - self.pad_height:
+                self.pad_y[0] = self.WINDOW_HEIGHT - self.pad_height
+            else:
+                self.pad_y[0] += self.pad_speed[0]
+           
         if  self.pad_y[1] + self.pad_speed[1] < 0:
             self.pad_y[1] = 0
         elif self.pad_y[1] + self.pad_speed[1] > self.WINDOW_HEIGHT - self.pad_height:
             self.pad_y[1] = self.WINDOW_HEIGHT - self.pad_height
         else:
             self.pad_y[1] += self.pad_speed[1]
-            
-        #Q-learning agent for left paddle
-        self.bot_left.act()
-        #Q-learning agent for right paddle
-        self.bot.act()
         
         #Ball movement            
         self.ball_x += int(self.ball_speed[0])
@@ -402,7 +429,18 @@ class PongEnv:
         self.visualize()
         
         pygame.display.flip()
-        self.clock.tick(80) 
+        self.clock.tick(80)
+        
+    def record_history(self):
+        avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
+        avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
+        
+        # summarize for print
+        self.FP_avg_q_value_history.append(avg_q_value)
+        self.FP_avg_reward_history.append(avg_reward)
+        self.FP_recent_win_rate_history.append(self.bot.recent_win_rate)
+        self.FP_episode_cnt_history.append(self.bot.episode_cnt)
+        self.FP_epsilon_history.append(self.bot.epsilon)
         
     def visualize(self):
         # -------------------------- 新增：训练进度可视化 --------------------------
@@ -411,7 +449,13 @@ class PongEnv:
         # 2. 计算关键指标
         avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
         avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
-        #recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
+        
+        # summarize for print
+        self.FP_avg_q_value_history.append(avg_q_value)
+        self.FP_avg_reward_history.append(avg_reward)
+        self.FP_recent_win_rate_history.append(self.bot.recent_win_rate)
+        self.FP_episode_cnt_history.append(self.bot.episode_cnt)
+        self.FP_epsilon_history.append(self.bot.epsilon)
         
         # 3. 绘制指标文本（左上角排列）
         text_color = self.WHITE
@@ -420,7 +464,8 @@ class PongEnv:
             f"近期胜率: {self.bot.recent_win_rate:.2f}",
             f"平均奖励: {avg_reward:.2f}",
             f"Q表均值: {avg_q_value:.4f}",
-            f"探索率: {self.bot.epsilon:.6f}"
+            f"探索率: {self.bot.epsilon:.6f}",
+            f"当前trainer_bot: {self.bot_type}"
         ]
         for i, text in enumerate(texts):
             text_surface = font_small.render(text, True, text_color)
@@ -477,7 +522,76 @@ class PongEnv:
             # 绘制折线
             pygame.draw.lines(self.screen, self.BLUE, False, points, 2)
         # -------------------------------------------------------------------------
+        
+    def save_training_history(self):
+        """保存训练历史指标到CSV文件（便于后续分析）"""
+        import pandas as pd
+        # 构造DataFrame（5个指标）
+        history_df = pd.DataFrame({
+            "episode_cnt": self.FP_episode_cnt_history,
+            "recent_win_rate": self.FP_recent_win_rate_history,
+            "avg_reward": self.FP_avg_reward_history,
+            "avg_q_value": self.FP_avg_q_value_history,
+            "epsilon": self.FP_epsilon_history
+        })
+        # 按时间戳命名文件（避免覆盖）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        save_path = f"training_history_v4(mu)_{timestamp}.csv"
+        # 保存CSV
+        history_df.to_csv(save_path, index=False, encoding="utf-8")
+        print(f"\n训练历史已保存到：{save_path}")
+        return history_df
 
+    def plot_training_history(self, history_df):
+        """用matplotlib绘制5个指标的总折线图"""
+        import matplotlib.pyplot as plt
+        # 设置中文字体（避免乱码）
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+        
+        # 创建2x2子图（4个指标）+ 共用x轴（回合数）
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle(f'Pong训练历史指标（总计{max(self.FP_episode_cnt_history)}回合）', fontsize=16, fontweight='bold')
+        
+        # 1. 近期胜率（ax1）
+        ax1.plot(history_df["episode_cnt"], history_df["recent_win_rate"], color='#2E8B57', linewidth=2)
+        ax1.set_title('近期胜率变化', fontsize=14)
+        ax1.set_xlabel('回合数')
+        ax1.set_ylabel('胜率（0~1）')
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(0, 1)  # 胜率范围固定0~1
+        
+        # 2. 平均奖励（ax2）
+        ax2.plot(history_df["episode_cnt"], history_df["avg_reward"], color='#4169E1', linewidth=2)
+        ax2.set_title('平均奖励变化', fontsize=14)
+        ax2.set_xlabel('回合数')
+        ax2.set_ylabel('平均奖励值')
+        ax2.grid(True, alpha=0.3)
+        
+        # 3. Q表均值（ax3）
+        ax3.plot(history_df["episode_cnt"], history_df["avg_q_value"], color='#DC143C', linewidth=2)
+        ax3.set_title('Q表平均价值变化', fontsize=14)
+        ax3.set_xlabel('回合数')
+        ax3.set_ylabel('Q表均值')
+        ax3.grid(True, alpha=0.3)
+        
+        # 4. 探索率（ax4）
+        ax4.plot(history_df["episode_cnt"], history_df["epsilon"], color='#FF8C00', linewidth=2)
+        ax4.set_title('探索率（epsilon）变化', fontsize=14)
+        ax4.set_xlabel('回合数')
+        ax4.set_ylabel('探索率（0~1）')
+        ax4.grid(True, alpha=0.3)
+        ax4.set_yscale('log')  # 探索率衰减快，用对数坐标更清晰
+        
+        # 调整子图间距
+        plt.tight_layout()
+        # 保存图片（按时间戳命名）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        plot_save_path = f"training_plot_v4(mu)_{timestamp}.png"
+        plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
+        print(f"训练图表已保存到：{plot_save_path}")
+        # 显示图表
+        plt.show()
 
 env = PongEnv()
 manned = False
@@ -486,8 +600,10 @@ while env.running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             env.running = False
-            env.bot.save_q_table("q_table-v4(mu).pkl")
-            env.bot.save_q_table_left("q_table-v4(mu)-left.pkl")
+            #env.bot.save_q_table("q_table-v4(mu).pkl")
+            #env.bot.save_q_table_left("q_table-v4(mu)-left.pkl")
+            #history_df = env.save_training_history()
+            #env.plot_training_history(history_df)
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
@@ -495,6 +611,7 @@ while env.running:
                 env.bot.save_q_table_left(versioned=True)
             if event.key == pygame.K_F4:
                 manned = not manned
+                print(f"manned: {manned}")
     
     if manned:
         keys = pygame.key.get_pressed()
@@ -506,9 +623,17 @@ while env.running:
             env.update_speed(0, 0)
     
     env.step()
-    if env.bot.episode_cnt % 50 == 0 and env.bot.episode_cnt > 0:
+    env.render()
+    '''
+    if env.bot.episode_cnt % 500000 == 0 and env.bot.episode_cnt > 0 and env.bot.episode_cnt != env.last_save_episode:
         env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
         env.bot.save_q_table_left(versioned=True)
-    env.render()
-          
+        env.last_save_episode = env.bot.episode_cnt
+        avg_reward = np.mean(env.bot.reward_history) if env.bot.reward_history else 0.0
+        print(f"回合数：{env.bot.episode_cnt} | 近期胜率：{env.bot.recent_win_rate:.2f} | 平均奖励：{avg_reward:.2f} | 探索率：{env.bot.epsilon:.6f}")
+    
+    if env.bot.episode_cnt % 10000 == 0 and env.bot.episode_cnt != 0 and env.bot.episode_cnt != env.last_step_episode:
+        env.record_history()
+        env.last_step_episode = env.bot.episode_cnt
+    '''   
 pygame.quit()
