@@ -1,0 +1,1820 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>绩点狂奔：逃离优绩主义 - Beta</title>
+  <style>
+  html, body { height: 100%; margin: 0; background: #121212; color: #eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; overflow: hidden; }
+    #game { width: 100%; max-width: 960px; margin: 0 auto; position: relative; }
+    .ui { max-width: 960px; margin: 12px auto; padding: 0 12px; }
+    .btn { display: inline-block; padding: 8px 12px; border-radius: 6px; background: #1f2937; color: #fff; text-decoration: none; margin-right: 8px; cursor: pointer; }
+    .btn:hover { background: #374151; }
+    .legend { font-size: 14px; color: #bbb; margin-top: 8px; }
+    /* 顶部横幅（CSS 美化版本） */
+#topBanner { position: absolute; left: 0; top: 0; width: 100%; height: 64px; z-index: 12; pointer-events: none;
+      background: linear-gradient(135deg, #c53030 0%, #9b2c2c 50%, #7f1d1d 100%);
+      border-bottom: 1px solid rgba(0,0,0,0.35);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+      backdrop-filter: blur(3px);
+    }
+    #topBanner::after { content: ""; position: absolute; inset: 0; opacity: 0.08;
+      background-image: linear-gradient(45deg, rgba(255,255,255,0.6) 0 10px, transparent 10px 20px);
+      background-size: 28px 28px;
+    }
+    #topBanner .inner { position: relative; max-width: 960px; margin: 0 auto; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    /* 滚动横幅（大字滚动，多条讽刺语句） */
+    #topBannerTicker { position: absolute; left: 0; top: 0; height: 100%; display: flex; align-items: center; white-space: nowrap; will-change: transform; animation: banner-marquee 45s linear infinite; }
+    #topBannerTicker .phrase { color: #ffe6e6; font-weight: 800; letter-spacing: 1px; font-size: 28px; text-shadow: 0 2px 4px rgba(0,0,0,0.6); margin-right: 48px; }
+    /* 为避免空窗期，内容在容器中重复两轮，动画仅平移到 -50%，恰好无缝衔接 */
+    @keyframes banner-marquee {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    /* CSS 障碍物层（覆盖在 Phaser 画布之上） */
+#cssLayer { position: absolute; inset: 0; pointer-events: none; z-index: 10; overflow: hidden; }
+    .css-obstacle { position: absolute; left: 0; top: 0; transform: none;
+      background: #ffffff; color: #111; border: 2px solid #dddddd; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+      display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; padding: 4px 8px;
+      will-change: transform; opacity: 0.95; }
+    .css-obstacle.ddl { background: #ffefef; border-color: #ffb5b5; color: #a10000; }
+    .css-obstacle.exam { background: #f9f9f9; border-color: #cfcfcf; color: #333; }
+    .css-obstacle.book { background: #fff8e1; border-color: #ffd071; color: #7a4d00; }
+    .css-obstacle.hw { background: #eafff3; border-color: #b7f7d1; color: #0a6640; }
+    /* 传单（负向）：用于随机扣分事件的可视化词条 */
+    .css-obstacle.flyer { background: #fff6cd; border-color: #ffde7a; color: #7a5e00; transform-origin: 50% 50%; }
+    /* 传单运动使用外层包裹元素承载位移，内层整体（文字框）做旋转 */
+    .flyer-wrapper { position: absolute; will-change: transform; }
+    @keyframes fall {
+      0% { transform: translateX(var(--tx, -50%)) translateY(-60px); }
+      100% { transform: translateX(var(--tx, -50%)) translateY(620px); }
+    }
+    /* CSS 传单斜向下飞入（平移），旋转在子元素上实现以便随机速度 */
+    @keyframes flyL {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(var(--dx, 120vw), var(--dy, 120vh)); }
+    }
+    @keyframes flyR {
+      0%   { transform: translate(0, 0); }
+      100% { transform: translate(var(--dx, -120vw), var(--dy, 120vh)); }
+    }
+    /* 连续旋转（不摇摆），速度由动画时长控制（随机） */
+    @keyframes spinContinuous {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    /* 底部状态栏：紧贴游戏页面底部，内容整体居中 */
+    #bottomBar { position: relative; width: 100%; height: 48px; z-index: 12; pointer-events: none;
+      background: linear-gradient(180deg, rgba(20,20,24,0.85) 0%, rgba(12,12,16,0.92) 100%);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 -6px 16px rgba(0,0,0,0.35);
+      backdrop-filter: blur(2px);
+    }
+    #bottomBar .inner { max-width: 960px; margin: 0 auto; height: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+    #bottomBar .hud { font-size: 15px; color: #ddd; }
+    #bottomBar .time { font-size: 15px; color: #ddd; }
+    /* HUD 闪烁效果 */
+    #bottomBar.flash .hud { color: var(--flashColor, #ff8a8a); transition: color 0.18s ease; }
+    /* Beta 着陆页：默认仅显示标题；点击进入后显示游戏内容 */
+    body:not(.show-game) > *:not(#betaTitle) { display: none !important; }
+    body.show-game #betaTitle { display: none; }
+    /* 进入试玩后，整体相对于浏览器视口垂直居中（游戏区域 + 状态栏） */
+    body.show-game { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }
+    /* 进入试玩后，移除游戏界面上方的无关文字（试玩说明与顶部横幅） */
+    body.show-game .ui { display: none; }
+    body.show-game #topBanner { display: none !important; }
+    #betaTitle { height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+    #betaTitle h1 { font-size: 28px; color: #eee; margin: 0; letter-spacing: 0.5px; }
+  </style>
+  <!-- Phaser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
+</head>
+<body>
+  <div id="betaTitle"><h1>绩点狂奔：逃离优绩主义 - Beta</h1><button id="enterBtn" class="btn">进入试玩</button></div>
+  <script>
+    // Beta -> 进入试玩：显示完整游戏界面
+    (function(){
+      const btn = document.getElementById('enterBtn');
+      if (btn) btn.addEventListener('click', () => { document.body.classList.add('show-game'); });
+    })();
+  </script>
+  <div class="ui">
+    <h1>《绩点狂奔：逃离优绩主义》试玩版</h1>
+    <div>
+      <span class="btn" id="restartBtn">重新开始</span>
+      <span class="btn" id="cheatBtn">输入作弊码 FREEDOM</span>
+    </div>
+    <div class="legend">
+      操作：左右方向键移动，空格跳跃。初始 GPA 2.0；碰到障碍 GPA -0.1，收集道具 GPA +0.1。GPA < 1.5 角色变暗；GPA > 3.5 角色发光（以角色为中心的模糊光晕）。失败：GPA < 1.0 触发“北京退学的结局”（重开关键词：复读）。成功：GPA > 4.0 触发“进入新的内卷牢笼结局”（重开关键词：进组）。隐藏：连续躲避10个障碍可进入“逃课通道”。
+    </div>
+  </div>
+  <div id="game">
+    <div id="topBanner"><div class="inner">
+      <div id="topBannerTicker">
+        <span class="phrase">冲入好大学你们就成功了！</span>
+        <span class="phrase">996福报：努力就是幸福！</span>
+        <span class="phrase">学习出一个光明的未来！</span>
+        <span class="phrase">按时上岸，幸福一生！</span>
+        <span class="phrase">内卷是成长的阶梯！</span>
+        <span class="phrase">加班加点成就梦想！</span>
+        <!-- 为连续滚动再重复一轮，避免空档 -->
+        <span class="phrase">冲入好大学你们就成功了！</span>
+        <span class="phrase">996福报：努力就是幸福！</span>
+        <span class="phrase">学习出一个光明的未来！</span>
+        <span class="phrase">按时上岸，幸福一生！</span>
+        <span class="phrase">内卷是成长的阶梯！</span>
+        <span class="phrase">加班加点成就梦想！</span>
+      </div>
+    </div></div>
+    <div id="cssLayer"></div>
+  </div>
+  <!-- 底部状态栏（固定在网站底端，显示时间与事件提示，位于图片底端与网站底端之间的间隙） -->
+  <div id="bottomBar"><div class="inner">
+    <div class="hud" id="bottomHUD">躲避障碍以维持 GPA</div>
+    <div class="time" id="bottomTime">时间 2026年2月1日</div>
+  </div></div>
+
+  <script>
+    /*
+     ==========================================
+     《绩点狂奔：逃离优绩主义》—— 架构与开发注释
+     ==========================================
+     引擎与技术栈：
+       - 使用 Phaser 3.60 (Arcade Physics) 的纯前端单页实现。
+       - 无外部素材版（占位图形渲染），后续可替换为美术资源。
+
+     文件与场景结构：
+       - 单文件 index.html，包含 HTML、样式与脚本。
+       - 单场景（preload/create/update）驱动：
+         preload()   -> （预留）资源加载；目前为占位实现。
+         create()    -> 初始化世界、实体、UI、输入与定时器。
+         update()    -> 每帧循环：移动、GPA演出、清理、判定等。
+
+     状态管理（STATE，全局）：
+       - gpa: 当前绩点，范围 [0.0, 5.0]。
+       - avoidedCount: 躲避的障碍数量（越界销毁计数）。
+       - cheatActive: 作弊码激活状态（锁定 GPA）。
+       - elapsed: 累计用时（秒）。
+       - phase: 阶段（play | success | fail | easter）。
+
+     世界与实体：
+       - 物理：Arcade Physics + 重力 y=1200。
+       - ground: 静态地面（可视矩形 + static body）。
+       - player: 动态玩家（可视矩形 + dynamic body）。
+       - obstacles: 障碍物组（数学题、作业本雨、同辈压力幽灵、补习班传单）。
+       - items: 道具组（咖啡、反内卷手册、顿悟灯泡）。
+
+     子系统与机制：
+       - 输入系统：方向键移动、空格跳跃、R重开、作弊码 FREEDOM。
+       - 生成系统：
+           * 障碍：700ms 间隔，每次 1-2 个，含速度/波动参数。
+           * 道具：5600ms 间隔，含效果（加速/无敌/安全路径高亮）。
+       - 碰撞系统：玩家与障碍 overlap 触发惩罚；玩家与道具 overlap 触发奖励。
+       - GPA系统：changeGPA(delta) 控制上限/下限，驱动演出（发光/灰暗）。
+       - 演出系统：HUD 文案闪烁、顶部红色标语轮换、安全路径高亮、玩家发光。
+       - 判定系统：
+           * 通关：elapsed ≥ 60s 且 GPA ≥ 3.5。
+           * 失败：GPA < 2.0。
+           * 彩蛋：avoidedCount ≥ 10 进入“逃课通道”。
+       - 重开与清理：R键或按钮重启场景并重置 STATE。
+
+     数值与可调参数（手感相关）：
+       - 玩家水平速度基准 speedBase = 380；GPA>4.0 加权 0.7。
+       - 跳跃速度 -560；重力 1200；咖啡将重力暂调为 900。
+       - 障碍生成间隔 700ms；每次 1-2 个；各障碍的速度范围详见 spawnObstacle。
+       - 道具生成间隔 5600ms；效果时长与幅度见 spawnItem。
+
+     扩展点（后续开发建议）：
+       - BOSS 两阶段战斗（“大学/社会”）：攻击模式、台词与环境变化。
+       - 素材接入：Kenney/自制手绘风；音效与粒子特效。
+       - 障碍丰富：追踪型家长消息气泡、横幅下压、课堂点名 QTE。
+       - 结局动画：校门变铁栏、新牢笼、撒卷星空。
+       - 部署：GitHub Pages 静态托管；或任意静态服务器。
+
+     备注：
+       - 代码内大量注释与分隔标记（=====）用于快速定位模块。
+       - 如需进一步文档化，可为每个函数添加 JSDoc 标注（已添加主要函数）。
+    */
+
+    // 核心状态
+    const STATE = {
+      gpa: 2.0,
+      avoidedCount: 0,
+      cheatActive: false,
+      elapsed: 0,
+      phase: 'intro', // intro | play | success | fail | easter
+      // 彩蛋触发跟踪（边界撞击/长按）
+      easter: {
+        leftBumps: [],
+        rightBumps: [],
+        contactSide: null,
+        contactStartAt: 0,
+      },
+    };
+
+    // 运行时配置：可按需启用/禁用特性
+    const GAME_CONFIG = {
+      easterEnabled: false, // 隐藏彩蛋暂不触发，如需开启改为 true
+    };
+
+    // 颜色常量
+  const COLORS = {
+      bg: 0x1a1a1a,
+      corridor: 0x20232a,
+      banner: 0xbb2f2f,
+      bannerText: '#ffe6e6',
+      player: 0x4e79a7,
+      playerGlow: 0xfff6e0,
+      playerLow: 0x555555,
+      obstacle: 0xffb000,
+      ghost: 0x89d0f0,
+      itemCoffee: 0x8b5cf6,
+      itemHandbook: 0x10b981,
+      itemLamp: 0xf59e0b,
+  };
+
+  // 玩家碰撞箱紧致系数：默认为与图片完全一致（1.0）。
+  // 如果你发现边缘容易误碰，可以把这两个数值稍微调小，例如 0.95 / 0.96。
+  const HITBOX_SHRINK_X = 1.0;
+  const HITBOX_SHRINK_Y = 1.0;
+
+  // 隐藏彩蛋触发参数
+  const EASTER_BOUNDARY_WINDOW_MS = 10000; // 10s 窗口
+  const EASTER_BOUNDARY_HITS_REQUIRED = 8; // 10s 内同一侧边界撞击次数阈值
+  const EASTER_LONG_PRESS_MS = 8000; // 在边界长按撞击持续 8s
+
+    // 游戏配置
+    const WIDTH = 960;
+    const HEIGHT = 540;
+
+    // 时间显示映射：将 0-100s 映射为 2026/02/01 到 2026/07/15 的线性日期
+    const START_DATE = new Date(2026, 1, 1); // 月份从 0 开始，1 表示 2 月
+    const END_DATE   = new Date(2026, 6, 15); // 6 表示 7 月
+
+
+    const config = {
+      type: Phaser.AUTO,
+      parent: 'game',
+      width: WIDTH,
+      height: HEIGHT,
+      backgroundColor: '#0f0f12',
+      physics: { default: 'arcade', arcade: { gravity: { y: 1200 }, debug: false } },
+      scene: { preload, create, update }
+    };
+
+    const game = new Phaser.Game(config);
+
+    let player, cursors, wasd, gpaText, bannerText, obstacles, items, ground, hudText, timerText;
+  // 底部状态栏 DOM 元素（固定在网站底端）
+  let bottomHUDEl, bottomTimeEl, bottomBarEl;
+  // 背景图层（用于平铺并随相机横向滚动）
+  let bgLayer = null;
+  // 跳跃/下落手感参数与状态
+  let jumpCount = 0;            // 当前连续起跳次数（用于二段跳）
+  const JUMP_VELOCITY = -560;   // 起跳速度（负值向上）
+  const FAST_DROP_ACCEL = 1800; // 加速落地时的额外加速度（正值向下）
+let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
+    let flipTween;
+    let facingDir = 'left';
+    // CSS 覆盖层与 DOM 障碍列表
+    let cssLayer, cssObstacles = [];
+    let topBannerEl;
+    // CSS 障碍标签库（随机命名）与类别映射
+    // 说明：此处仅用于“学习相关的文本障碍”展示，不承载“随机事件”文案。
+    //      为避免“随机事件以下雨的形式生成”，已将带有 event:true 的词条排除在 CSS 文本雨之外。
+    const LABELS = [
+      // 作业/习题册：吃到加 GPA（正向）
+      { text: '数学习题册', cls: 'book', type: 'pos', value: 0.1 },
+      { text: '英语Pre', cls: 'book', type: 'pos', value: 0.1 },
+      { text: '普物作业', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '化学实验', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '生物解剖', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '语文论文', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '历史阅读笔记', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '政治小论文', cls: 'hw', type: 'pos', value: 0.1 },
+      { text: '工程制图', cls: 'hw', type: 'pos', value: 0.1 },
+      // DDL：吃到扣 GPA（负向）
+      { text: '项目DDL', cls: 'ddl', type: 'neg', value: 0.2 },
+      { text: '论文DDL', cls: 'ddl', type: 'neg', value: 0.2 },
+      { text: '作业DDL', cls: 'ddl', type: 'neg', value: 0.2 },
+      // 传单/刷题册：归类为“随机事件”文案，不参与文本雨（event:true）
+      // 传单：保留为侧向/斜向飞入并旋转的 CSS 障碍（非雨状），不标记为随机事件
+      { text: '补习班传单', cls: 'flyer', type: 'neg', value: 0.12 },
+      { text: '社团招新传单', cls: 'flyer', type: 'neg', value: 0.08 },
+      { text: '考证培训传单', cls: 'flyer', type: 'neg', value: 0.1 },
+      { text: '学术讲座传单', cls: 'flyer', type: 'neg', value: 0.09 },
+      { text: '竞赛报名单', cls: 'flyer', type: 'neg', value: 0.12 },
+      { text: '刷题册加量', cls: 'book', type: 'neg', value: 0.1, event: true },
+      { text: '高频题库加练', cls: 'book', type: 'neg', value: 0.1, event: true },
+      // 试卷：有几率加/扣（混合）
+      { text: '线代试卷', cls: 'exam', type: 'mixed', value: 0.1 },
+      { text: '高数试卷', cls: 'exam', type: 'mixed', value: 0.1 },
+      { text: '期末试卷', cls: 'exam', type: 'mixed', value: 0.1 }
+    ];
+    // CSS 障碍生成平衡统计（确保加分与扣分的数量基本相等）
+    let cssStats = { posSpawned: 0, negSpawned: 0 };
+
+    /**
+     * 资源加载阶段（占位）
+     * 目前使用基本图形，无外部资源；如接入美术素材请在此预加载。
+     */
+    function preload() {
+      // 无素材版，使用图形绘制；若存在 you.png / you.jpg 则加载为角色贴图
+      try { this.load.image('you', 'you.png'); } catch {}
+      try { this.load.image('you_jpg', 'you.jpg'); } catch {}
+      // 背景图（若存在 background.png，则作为可探索的大背景）
+      try { this.load.image('bg', 'background.png'); } catch {}
+    }
+
+    /**
+     * 场景创建：搭建世界、实体、UI、输入与定时器。
+     * - 初始化地面/玩家物理体
+     * - 顶部标语与 HUD
+     * - 输入（方向键/空格/作弊码）
+     * - 生成器（障碍/道具）与碰撞逻辑
+     */
+    function create() {
+      // 绑定 CSS 覆盖层，并清空旧元素
+      cssLayer = document.getElementById('cssLayer');
+      if (cssLayer) cssLayer.innerHTML = '';
+      // 绑定 CSS 顶部横幅元素（滚动横幅）
+      topBannerEl = document.getElementById('topBannerTicker');
+      // 世界尺寸（默认等于视口），若存在背景图则启用平铺背景并扩展世界
+      let worldWidth = WIDTH;
+      let worldHeight = HEIGHT;
+      if (this.textures && this.textures.exists('bg')) {
+        const src = this.textures.get('bg').getSourceImage();
+        const s = HEIGHT / src.height; // 按高度适配视口高度
+        // 使用可平铺的 tileSprite 作为背景层，并随相机滚动（不参与相机缩放与位移）
+        bgLayer = this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'bg').setOrigin(0, 0).setDepth(-10).setScrollFactor(0);
+        bgLayer.tileScaleX = s;
+        bgLayer.tileScaleY = s;
+        // 扩展物理与相机世界宽度为背景贴图的等比宽度（至少为视口的 2 倍，以确保可明显横向探索）
+        worldWidth = Math.max(WIDTH * 2, Math.floor(src.width * s));
+        worldHeight = HEIGHT;
+      } else {
+        // 回退：走廊矩形与窗户
+        const corridor = this.add.rectangle(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, COLORS.corridor).setAlpha(0.9);
+        const windows = this.add.group();
+        for (let i = 0; i < 6; i++) {
+          const w = this.add.rectangle(120 + i*140, 120, 80, 40, 0x2b2e34).setStrokeStyle(2, 0x3a3d44);
+          const light = this.add.rectangle(120 + i*140, 120, 70, 30, 0xfff2cf).setAlpha(Phaser.Math.Between(3, 7)/10);
+          windows.add(w); windows.add(light);
+        }
+      }
+
+      // 顶部红色标语（Phaser 版本隐藏，改用 CSS 横幅显示）
+      const banner = this.add.rectangle(WIDTH/2, 40, WIDTH, 60, COLORS.banner).setAlpha(0).setScrollFactor(0);
+      bannerText = this.add.text(WIDTH/2, 40, '冲入好大学你们就成功了！', { fontSize: '24px', color: COLORS.bannerText }).setOrigin(0.5).setAlpha(0).setScrollFactor(0);
+
+      // 地面（静态物理体 + 可视矩形）——再上抬 20px，使其与背景图片底部更为平齐；视觉上不遮挡背景
+      ground = this.add.rectangle(worldWidth/2, HEIGHT-60, worldWidth, 40, 0x2c2c2c, 0);
+      this.physics.add.existing(ground, true); // true -> static body
+
+      // 玩家（优先使用 you 图片作为精灵，否则退回矩形）
+      let texKey = null;
+      if (this.textures && this.textures.exists('you')) texKey = 'you';
+      else if (this.textures && this.textures.exists('you_jpg')) texKey = 'you_jpg';
+      const spawnX = Math.floor(worldWidth / 2); // 初始位于世界中央，方便左右探索
+      if (texKey) {
+        player = this.physics.add.sprite(spawnX, HEIGHT-80, texKey);
+        player.setOrigin(0.5);
+        player.body.setCollideWorldBounds(true);
+        // 缩放到接近原先矩形高度 54，保持宽高比
+        const th = player.height || 54;
+        const s = 54 / th;
+        player.setScale(s);
+        // 记录基础缩放，供镜像过渡使用，避免多次镜像导致逐步变窄
+        player.baseScaleX = s;
+        player.baseScaleY = s;
+        // 将碰撞箱调整为与显示尺寸一致（可通过系数控制收紧/放宽）
+        player.body.setSize(player.displayWidth * HITBOX_SHRINK_X, player.displayHeight * HITBOX_SHRINK_Y, true);
+        // 不进行默认着色，保留原图颜色
+        player.clearTint && player.clearTint();
+      } else {
+        // 回退为矩形
+        player = this.add.rectangle(spawnX, HEIGHT-80, 36, 54, COLORS.player);
+        this.physics.add.existing(player); // dynamic body
+        player.body.setCollideWorldBounds(true);
+      }
+      player.gpa = 2.0; // 附加属性（初始 GPA）
+      // 初始面向为左，设置镜像状态（不会重复创建 tween）
+      setFacing(this, 'left');
+      // 与地面碰撞
+      this.physics.add.collider(player, ground);
+
+      // GPA 文本（悬浮在头顶）
+      gpaText = this.add.text(player.x, player.y - 50, `GPA: ${STATE.gpa.toFixed(1)}`, { fontSize: '16px', color: '#000000' }).setOrigin(0.5);
+
+      // HUD 文本
+      hudText = this.add.text(16, HEIGHT - 44, '躲避障碍以维持 GPA', { fontSize: '16px', color: '#ddd' }).setScrollFactor(0).setVisible(false);
+      timerText = this.add.text(WIDTH-160, HEIGHT - 44, '时间 2026年2月1日', { fontSize: '16px', color: '#ddd' }).setScrollFactor(0).setVisible(false);
+      // 获取底部状态栏 DOM 元素并初始化
+      bottomBarEl = document.getElementById('bottomBar');
+      bottomHUDEl = document.getElementById('bottomHUD');
+      bottomTimeEl = document.getElementById('bottomTime');
+      // 进场对话时的初始状态栏文案调整
+      if (bottomHUDEl) bottomHUDEl.textContent = '规划你无限精彩的大学生活吧~';
+      if (bottomTimeEl) bottomTimeEl.textContent = '时间 2026年2月1日';
+
+      // 控制
+      cursors = this.input.keyboard.createCursorKeys();
+      // WASD 与方向键效果一致
+      wasd = this.input.keyboard.addKeys({
+        up: Phaser.Input.Keyboard.KeyCodes.W,
+        left: Phaser.Input.Keyboard.KeyCodes.A,
+        down: Phaser.Input.Keyboard.KeyCodes.S,
+        right: Phaser.Input.Keyboard.KeyCodes.D,
+      });
+      // 跳跃统一处理：空格 = 上方向键；允许二段跳
+      const attemptJump = () => {
+        const onGround = player.body.touching.down || player.body.blocked?.down;
+        if (onGround) {
+          jumpCount = 0; // 着地重置跳跃次数
+        }
+        if (onGround || jumpCount < 2) {
+          player.body.setVelocityY(JUMP_VELOCITY);
+          jumpCount++;
+        }
+      };
+      this.input.keyboard.on('keydown-SPACE', attemptJump);
+      this.input.keyboard.on('keydown-UP', attemptJump);
+      this.input.keyboard.on('keydown-W', attemptJump);
+
+      // 下方向键：加速落地（按住生效，松开恢复）
+      this.input.keyboard.on('keydown-DOWN', () => {
+        player.body.setAccelerationY(FAST_DROP_ACCEL);
+      });
+      this.input.keyboard.on('keyup-DOWN', () => {
+        player.body.setAccelerationY(0);
+      });
+      this.input.keyboard.on('keydown-S', () => {
+        player.body.setAccelerationY(FAST_DROP_ACCEL);
+      });
+      this.input.keyboard.on('keyup-S', () => {
+        player.body.setAccelerationY(0);
+      });
+
+      // 按出 Free 触发彩蛋 & 作弊码 FREEDOM 键入检测
+      const freeSeq = ['F','R','E','E'];
+      let freeIdx = 0;
+      const cheatSeq = ['F','R','E','E','D','O','M'];
+      let cheatIdx = 0;
+      this.input.keyboard.on('keydown', (e) => {
+        const k = e.key.toUpperCase();
+        // FREE 彩蛋序列检测（不与 FREEDOM 冲突：均独立递进）
+        if (k === freeSeq[freeIdx]) {
+          freeIdx++;
+          if (freeIdx === freeSeq.length) {
+            if (STATE.phase === 'play') enterFreeEaster(this);
+            freeIdx = 0;
+          }
+        } else {
+          freeIdx = 0;
+        }
+        if (k === cheatSeq[cheatIdx]) {
+          cheatIdx++;
+          if (cheatIdx === cheatSeq.length) {
+            activateCheat(this);
+            cheatIdx = 0;
+          }
+        } else {
+          cheatIdx = 0;
+        }
+
+        // 上左下右上左下右Baba 序列触发彩蛋（支持方向键与 WASD，末尾 B A B A）
+        const babaSeq = ['UP','LEFT','DOWN','RIGHT','UP','LEFT','DOWN','RIGHT','B','A','B','A'];
+        // 键名标准化
+        const normalize = (kk) => {
+          switch (kk) {
+            case 'ARROWUP': case 'W': return 'UP';
+            case 'ARROWLEFT': case 'A': return 'LEFT';
+            case 'ARROWDOWN': case 'S': return 'DOWN';
+            case 'ARROWRIGHT': case 'D': return 'RIGHT';
+            case 'B': return 'B';
+            case 'A': return 'A';
+            default: return null;
+          }
+        };
+        const nk = normalize(e.key.toUpperCase());
+        // 使用 STATE 临时保存序列进度（不影响其他逻辑）
+        if (nk) {
+          const idx = (STATE.easterSeqIdx || 0);
+          if (nk === babaSeq[idx]) {
+            STATE.easterSeqIdx = idx + 1;
+            if (STATE.easterSeqIdx >= babaSeq.length) {
+              STATE.easterSeqIdx = 0;
+              if (STATE.phase === 'play') enterEaster(this);
+            }
+          } else {
+            // 支持从头部重新起步
+            STATE.easterSeqIdx = (nk === babaSeq[0]) ? 1 : 0;
+          }
+        }
+      });
+
+      // 顶部标语动态变化：若未启用滚动横幅则在两句之间切换；启用滚动横幅时不再改动
+      this.time.addEvent({ delay: 12000, loop: true, callback: () => {
+        if (!document.getElementById('topBannerTicker')) {
+          const newText = bannerText.text.includes('成功') ? '996福报：努力就是幸福！' : '冲入好大学你们就成功了！';
+          bannerText.setText(newText);
+        }
+      }});
+
+      // 障碍与道具组
+      obstacles = this.physics.add.group();
+      items = this.physics.add.group();
+
+      // 生成障碍（飞来数学习题 / 同辈压力幽灵 / 补习班传单）——降低频率与单次数量，减少 flyer
+      this.time.addEvent({ delay: 1400, loop: true, callback: () => spawnObstacle(this) });
+      // CSS 竖直掉落障碍（习题册/各科作业/DDL/传单）——提高刷新量：更高频率与更大批量
+      this.time.addEvent({ delay: 480, loop: true, callback: () => { 
+        const r = Math.random();
+        const count = (r < 0.10) ? 4 : (r < 0.50) ? 3 : 2; // 10%四连，40%三连，50%双连（刷新量上调）
+        for (let i = 0; i < count; i++) spawnCssObstacle();
+      }});
+      // 背景板公式（随机数学/物理公式，无文字框；存在3-10秒）
+      this.time.addEvent({ delay: 1000, loop: true, callback: () => spawnFormula(this) });
+      // 生成道具（咖啡 / 反内卷手册 / 顿悟灯泡）
+      this.time.addEvent({ delay: 5600, loop: true, callback: () => spawnItem(this) });
+      // 随机扣分事件（习题册/传单等）：每隔一段时间触发一次轻度扣分
+      scheduleRandomPenaltyEvents(this);
+
+      // 碰撞与收集逻辑
+      this.physics.add.overlap(player, obstacles, (p, o) => onHitObstacle(this, p, o));
+      this.physics.add.overlap(player, items, (p, i) => onCollectItem(this, p, i));
+
+      // 安全路径高亮图层
+      safePathGraphics = this.add.graphics();
+
+      // 重开按钮绑定
+      document.getElementById('restartBtn').addEventListener('click', () => resetGame(this));
+      document.getElementById('cheatBtn').addEventListener('click', () => activateCheat(this));
+
+      // 世界与相机：允许角色探索两侧区域，仅显示中央视口
+      this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
+      const cam = this.cameras.main;
+      cam.setBounds(0, 0, worldWidth, worldHeight);
+      // 仅在角色接近屏幕左右边缘时触发横向相机跟随；纵向不跟随（避免跳跃导致画面上下晃动）
+      // 调小 deadzone，使角色靠近屏幕两侧更早触发相机横向滚动
+      cam.setDeadzone(Math.floor(WIDTH * 0.4), Math.floor(HEIGHT * 0.8));
+      cam.startFollow(player, true, 0.12, 0);
+      // 初始时将相机滚动到背景中央（以角色为中心），确保“开局显示中央部分”
+      const initialScrollX = Phaser.Math.Clamp(player.x - WIDTH / 2, 0, worldWidth - WIDTH);
+      cam.setScroll(initialScrollX, 0);
+      if (bgLayer) bgLayer.tilePositionX = initialScrollX;
+
+      // 开场叙事：三段点击推进，最后触发“大门打开”过渡并进入游戏
+      showIntro(this);
+    }
+
+    /**
+     * 每帧循环：输入、移动、演出、清理与胜负判定。
+     * @param {number} time - 场景运行毫秒数
+     * @param {number} delta - 两帧之间的毫秒差
+     */
+    function update(time, delta) {
+      if (STATE.phase !== 'play') return;
+
+      STATE.elapsed += delta/1000;
+      // 映射 0-100s 到 2026/02/01 - 2026/07/15 的日期
+      const frac = Math.min(STATE.elapsed / 100, 1);
+      const curDate = new Date(START_DATE.getTime() + frac * (END_DATE.getTime() - START_DATE.getTime()));
+      const timeStr = `时间 ${curDate.getFullYear()}年${curDate.getMonth()+1}月${curDate.getDate()}日`;
+      timerText.setText(timeStr);
+      if (bottomTimeEl) bottomTimeEl.textContent = timeStr;
+
+      // 玩家移动
+      // 玩家水平移动速度（手感核心参数）
+      const speedBase = 380;
+      const speed = STATE.gpa > 4.0 ? speedBase * 0.7 : speedBase;
+      const leftPressed = (cursors.left && cursors.left.isDown) || (wasd && wasd.left && wasd.left.isDown);
+      const rightPressed = (cursors.right && cursors.right.isDown) || (wasd && wasd.right && wasd.right.isDown);
+      if (leftPressed) { player.body.setVelocityX(-speed); setFacing(this, 'left'); }
+      else if (rightPressed) { player.body.setVelocityX(speed); setFacing(this, 'right'); }
+      else { player.body.setVelocityX(0); }
+
+      // 边界撞击彩蛋检测（10s 内同侧 8 次 或 长按 8s）
+      updateBoundaryEaster(this);
+
+      // 着地时重置跳跃次数（保证二段跳稳定）
+      if (player.body.touching.down || player.body.blocked?.down) {
+        jumpCount = 0;
+      }
+
+      // 玩家外观根据 GPA 变化
+      const color = STATE.gpa < 1.5 ? COLORS.playerLow : COLORS.player;
+      // 使用图片时不再显示蓝色外观；仅在 GPA 过低时略微加深（tint）
+      if (player.texture && player.setTint) {
+        if (STATE.gpa < 1.5) player.setTint(COLORS.playerLow); else player.clearTint();
+      } else {
+        player.fillColor = color;
+      }
+      if (STATE.gpa > 3.5) {
+        // 发光效果：以角色为中心的模糊光晕（多层半透明环叠加 + 轻微抖动避免“纯圆”感）
+        safePathGraphics.clear();
+        const cx = player.x, cy = player.y - 10;
+        for (let r = 24; r <= 80; r += 6) {
+          const alpha = Math.max(0, 0.22 - (r - 24) * 0.0035);
+          const jitterX = Math.sin(STATE.elapsed * 1.7 + r) * 0.8;
+          const jitterY = Math.cos(STATE.elapsed * 1.3 + r * 0.4) * 0.6;
+          safePathGraphics.fillStyle(COLORS.playerGlow, alpha);
+          safePathGraphics.fillCircle(cx + jitterX, cy + jitterY, r);
+        }
+      } else {
+        safePathGraphics.clear();
+      }
+
+      // GPA 文本跟随
+      gpaText.setPosition(player.x, player.y - 50);
+      gpaText.setText(`GPA: ${STATE.gpa.toFixed(1)}`);
+
+      // 背景平铺纹理根据相机的横向滚动进行位移，产生“背景随角色移动”的效果
+      if (bgLayer) {
+        bgLayer.tilePositionX = this.cameras.main.scrollX;
+      }
+
+      // 障碍与道具越界清理 + 躲避统计
+      obstacles.getChildren().forEach(o => {
+        if (o.x < -40 || o.y > HEIGHT+60) { o.destroy(); STATE.avoidedCount++; }
+      });
+      items.getChildren().forEach(i => { if (i.x < -40 || i.y > HEIGHT+60) i.destroy(); });
+
+      // 障碍的波动运动（补习班传单）
+      obstacles.getChildren().forEach(o => {
+        if (o.waveAmp) {
+          o.y = o.baseY + Math.sin(STATE.elapsed * o.waveFreq + o.wavePhase) * o.waveAmp;
+        }
+      });
+      // 更新基于背景的 CSS 障碍位置（世界坐标 -> 屏幕坐标）
+      updateCssObstacles(this, delta);
+      // CSS 障碍与玩家的碰撞检测（近似矩形）——传入当前场景，避免相机错位
+      checkCssCollisions(this);
+
+      // 触发“逃课通道”（当前关闭，可在 GAME_CONFIG.easterEnabled 开启）
+      if (GAME_CONFIG.easterEnabled && STATE.avoidedCount >= 10 && STATE.phase === 'play') {
+        enterEaster(this);
+      }
+
+      // 成功判定：GPA > 4.0 触发“进入新的内卷牢笼结局”
+      if (STATE.gpa > 4.0) {
+        showSuccess(this);
+      }
+
+      // 失败判定
+      if (STATE.gpa < 1.0) {
+        showFail(this);
+      }
+
+      // 支线结局判定：超过 100s 仍未成功/失败，则进入“迷茫：为何而卷？”
+      if (STATE.elapsed >= 100 && STATE.phase === 'play') {
+        showAmbiguous(this);
+      }
+    }
+
+    // ===== 边界彩蛋触发逻辑 =====
+    /**
+     * 检测玩家在地图边界的撞击与长按，以触发隐藏彩蛋。
+     * 条件：
+     * - 10s 内撞击同一侧边界达 8 次；或
+     * - 在边界持续按压冲撞 8s 以上。
+     */
+    function updateBoundaryEaster(scene) {
+      try {
+        const wb = scene.physics.world.bounds;
+        const body = player.body;
+        if (!body || !wb) return;
+        const atLeft = body.left <= wb.left + 1;
+        const atRight = body.right >= wb.right - 1;
+        const pressingLeft = (cursors.left?.isDown) || (wasd?.left?.isDown);
+        const pressingRight = (cursors.right?.isDown) || (wasd?.right?.isDown);
+        const now = scene.time.now || performance.now();
+
+        let contactSide = null;
+        if (atLeft && pressingLeft) contactSide = 'left';
+        else if (atRight && pressingRight) contactSide = 'right';
+
+        if (STATE.phase !== 'play') return;
+
+        if (contactSide) {
+          if (STATE.easter.contactSide !== contactSide) {
+            // 新一次边界接触，记为“撞击”
+            STATE.easter.contactSide = contactSide;
+            STATE.easter.contactStartAt = now;
+            const arr = (contactSide === 'left') ? STATE.easter.leftBumps : STATE.easter.rightBumps;
+            arr.push(now);
+            // 仅保留 10s 窗口内的数据
+            while (arr.length && now - arr[0] > EASTER_BOUNDARY_WINDOW_MS) arr.shift();
+            if (arr.length >= EASTER_BOUNDARY_HITS_REQUIRED) {
+              enterEaster(scene);
+              // 重置，避免重复触发
+              STATE.easter.leftBumps = []; STATE.easter.rightBumps = [];
+              STATE.easter.contactSide = null; STATE.easter.contactStartAt = 0;
+              return;
+            }
+          } else {
+            // 持续接触：长按 8s
+            if (STATE.easter.contactStartAt && now - STATE.easter.contactStartAt >= EASTER_LONG_PRESS_MS) {
+              enterEaster(scene);
+              STATE.easter.leftBumps = []; STATE.easter.rightBumps = [];
+              STATE.easter.contactSide = null; STATE.easter.contactStartAt = 0;
+              return;
+            }
+          }
+        } else {
+          // 离开边界接触
+          STATE.easter.contactSide = null;
+          STATE.easter.contactStartAt = 0;
+        }
+      } catch {}
+    }
+
+    // ===== 生成与事件逻辑 =====
+    /**
+     * 生成障碍：仅生成“空中的传单”（移除数学公式与幽灵），降低视觉干扰。
+     * - 补习班传单：水平匀速 + 上下波动
+     * @param {Phaser.Scene} scene
+     */
+    function spawnObstacle(scene) {
+      // 根据用户要求：不保留空中的物理传单，此处直接跳过物理障碍生成。
+      if (STATE.phase !== 'play') return;
+      return;
+    }
+
+    /**
+     * 生成道具：三选一，并为实例附加 effect(scene) 回调。
+     * - 咖啡：临时加速（重力降低），伴随 GPA 缓降小惩罚
+     * - 反内卷手册：短暂无敌
+     * - 顿悟灯泡：高亮安全路径一段时间
+     * @param {Phaser.Scene} scene
+     */
+    function spawnItem(scene) {
+      if (STATE.phase !== 'play') return;
+      const type = Phaser.Math.Between(0, 2); // 0: 咖啡, 1: 反内卷手册, 2: 顿悟灯泡
+      const y = Phaser.Math.Between(160, HEIGHT-120);
+      const viewRight = scene.cameras.main.scrollX + WIDTH;
+      if (type === 0) {
+        // 咖啡：加速但 GPA 缓慢下降（讽刺透支健康）
+      const i = scene.add.rectangle(viewRight+40, y, 26, 26, COLORS.itemCoffee);
+      scene.physics.add.existing(i);
+        i.effect = (scene) => {
+          setHUDText('☕ 续命咖啡：暂时加速，GPA缓降');
+          const originalGravity = scene.physics.world.gravity.y;
+          scene.physics.world.gravity.y = 900;
+          const decay = scene.time.addEvent({ delay: 6000, callback: () => {
+            scene.physics.world.gravity.y = originalGravity; decay.remove(false);
+          }});
+          const drop = scene.time.addEvent({ delay: 500, repeat: 9, callback: () => {
+            changeGPA(-0.02);
+          }});
+        };
+        i.body.setVelocityX(-160);
+        items.add(i);
+      } else if (type === 1) {
+        // 反内卷手册：临时无敌（躺平姿势）
+      const i = scene.add.rectangle(viewRight+40, y, 28, 32, COLORS.itemHandbook);
+      scene.physics.add.existing(i);
+        i.effect = (scene) => {
+          setHUDText('📚 反内卷手册：短暂无敌');
+          player.invincible = true;
+          const t = scene.time.addEvent({ delay: 4000, callback: () => { player.invincible = false; t.remove(false); }});
+        };
+        i.body.setVelocityX(-160);
+        items.add(i);
+      } else {
+        // 顿悟灯泡：高亮安全路径
+      const i = scene.add.rectangle(viewRight+40, y, 24, 24, COLORS.itemLamp);
+      scene.physics.add.existing(i);
+        i.effect = (scene) => {
+          setHUDText('💡 顿悟：短暂显示安全路径');
+          highlightSafePath(scene);
+        };
+        i.body.setVelocityX(-160);
+        items.add(i);
+      }
+    }
+
+    // ===== 随机扣分事件（系统级） =====
+    /**
+     * 文案入口：随机扣分事件（习题册、传单等）
+     * 用法：在 RANDOM_PENALTIES 中增删事件名称与力度；仅在 STATE.phase==='play' 时触发。
+     * 建议：名称 4-8 字，力度 0.05~0.2；频率适中以免过难。
+     */
+    const RANDOM_PENALTIES = [
+      { name: '补习班传单', delta: 0.1 },
+      { name: '社团招新传单', delta: 0.08 },
+      { name: '考证培训传单', delta: 0.1 },
+      { name: '学术讲座传单', delta: 0.09 },
+      { name: '竞赛报名单', delta: 0.12 },
+      { name: '刷题册加量', delta: 0.1 },
+      { name: '高频题库加练', delta: 0.1 }
+    ];
+
+    function triggerRandomPenaltyEvent(scene) {
+      if (STATE.phase !== 'play') return;
+      // 轻度惩罚，随机挑选一条
+      const evt = Phaser.Utils.Array.GetRandom(RANDOM_PENALTIES);
+      const val = Phaser.Math.FloatBetween(evt.delta * 0.9, evt.delta * 1.1);
+      changeGPA(-val);
+      // 根据名称猜测类别以生成更有趣的文案
+      const clsGuess = /传单|报名单/.test(evt.name) ? 'flyer' : (/册|题库/.test(evt.name) ? 'book' : 'flyer');
+      const msg = makeHudComment('neg', clsGuess, evt.name, false);
+      setHUDText(msg);
+      flashHUD(scene, '#ff8a8a');
+    }
+
+    function scheduleRandomPenaltyEvents(scene) {
+      // 概率更低：采用“随机间隔 + 随机触发概率”的方式
+      const scheduleOnce = () => {
+        const delay = Phaser.Math.Between(9000, 15000); // 更稀疏的触发窗口
+        scene.time.addEvent({ delay, callback: () => {
+          if (STATE.phase === 'play') {
+            // 40% 概率触发一次事件（可根据需要调整）
+            if (Math.random() < 0.4) {
+              triggerRandomPenaltyEvent(scene);
+            }
+          }
+          // 再次调度，形成不规则的间隔
+          scheduleOnce();
+        }});
+      };
+      scheduleOnce();
+    }
+
+    /**
+     * 玩家碰到障碍：销毁障碍，若非无敌则扣 GPA 并闪烁 HUD。
+     * 幽灵（alpha<0.5）惩罚更重。
+     */
+    function onHitObstacle(scene, p, o) {
+      if (!o.active) return;
+      o.destroy();
+      if (p.invincible || STATE.cheatActive) return;
+      const delta = o.alpha < 0.5 ? -0.2 : -0.1; // 幽灵更伤
+      changeGPA(delta);
+      flashHUD(scene);
+    }
+
+    /**
+     * 玩家收集道具：销毁道具，给予 GPA 奖励并触发其 effect。
+     */
+    function onCollectItem(scene, p, i) {
+      if (!i.active) return;
+      i.destroy();
+      // 正向奖励
+      changeGPA(+0.1);
+      if (typeof i.effect === 'function') i.effect(scene);
+    }
+
+    /**
+     * 修改 GPA（作弊开启则忽略），并夹紧到 [0.0, 5.0]。
+     * @param {number} delta - 增量（正负皆可）
+     */
+    function changeGPA(delta) {
+      if (STATE.cheatActive) return; // 作弊锁定
+      STATE.gpa = Math.max(0.0, Math.min(5.0, (STATE.gpa + delta)));
+      // GPA 文本颜色与强调（加分绿、扣分红，与状态栏提示颜色一致）
+      emphasizeGpaText(delta);
+    }
+
+    /**
+     * GPA 改变时强调玩家头顶的 GPA 文本：
+     * - 加分绿色（#8affb5），扣分红色（#ff8a8a），无变化恢复黑色；
+     * - 轻微缩放脉冲以强调；
+     * - 延时还原为默认黑色。
+     */
+    function emphasizeGpaText(delta) {
+      try {
+        const scene = (game && game.scene && game.scene.getScenes) ? game.scene.getScenes(true)[0] : null;
+        const color = delta > 0 ? '#8affb5' : (delta < 0 ? '#ff8a8a' : '#000000');
+        if (gpaText) {
+          gpaText.setColor(color);
+          // 脉冲缩放强调
+          if (scene && scene.tweens) {
+            if (gpaEmphasisTween && gpaEmphasisTween.isPlaying()) gpaEmphasisTween.stop();
+            gpaText.setScale(1.0);
+            gpaEmphasisTween = scene.tweens.add({
+              targets: gpaText,
+              scale: { from: 1.0, to: 1.25 },
+              yoyo: true,
+              duration: 140,
+              ease: 'Quad.Out'
+            });
+          }
+          // 延时恢复默认颜色
+          if (scene && scene.time) {
+            if (gpaFlashTimer) { try { gpaFlashTimer.remove(false); } catch (e) {} }
+            gpaFlashTimer = scene.time.addEvent({
+              delay: 800,
+              callback: () => { if (gpaText) gpaText.setColor('#000000'); }
+            });
+          }
+        }
+      } catch (e) { /* 忽略强调失败，避免影响游戏流程 */ }
+    }
+
+    // ===== 演出与辅助 =====
+    /**
+     * 项目架构总览（简要）：
+     *
+     * 1) 基本结构
+     *    - 单页入口：satire-runner/index.html（含样式、Phaser 配置与全部逻辑）。
+     *    - 静态资源：you.png（玩家贴图），必要时代码内生成图形对象（safePathGraphics 等）。
+     *
+     * 2) 场景与生命周期
+     *    - Phaser 单场景：通过 preload() 预加载资源、create() 初始化实体与 UI、update() 驱动游戏循环。
+     *    - create() 内绑定输入、构建 HUD/图层、并根据 STATE.phase 控制是否生成障碍与道具。
+     *
+     * 3) 状态管理（STATE）
+     *    - 关键字段：gpa、elapsed、avoidedCount、cheatActive、phase（intro|play|success|fail|easter）。
+     *    - 阈值联动：
+     *      · gpa > 3.5：玩家发光（模糊光晕）；
+     *      · gpa < 1.5：玩家整体变暗；
+     *      · gpa < 1.0：触发失败结局（北京退学，重开关键词“复读”）；
+     *      · gpa > 4.0：触发成功结局（进入新的内卷牢笼，重开关键词“进组”）。
+     *    - resetGame() 统一重置并重启场景，恢复初始 GPA=2.0 与计数，清空 CSS 障碍与图层。
+     *
+     * 4) 渲染层
+     *    - Canvas（Phaser）：玩家、地面、物理体、HUD 文本、叠层与演出（开场/结局）。
+     *    - CSS Layer（DOM）：文字型下落障碍（css-obstacle），用于形成“卷”感的文本雨；与 Canvas 通过近似矩形做碰撞。
+     *
+     * 5) 游戏循环与生成
+     *    - spawnObstacle()/spawnItem()/spawnCssObstacle()：在 STATE.phase === 'play' 时生成；intro 阶段不生成，保持开场干净。
+     *    - checkCssCollisions()：实时检测 DOM 障碍与玩家的碰撞，结算 GPA 与计数。
+     *
+     * 6) 演出与 UI
+     *    - HUD：顶部提示与闪烁反馈（flashHUD）。
+     *    - 叠层：showOverlay() 通用（胜利/失败/提示），并支持关键词点击重开；
+     *      新增 showEndingDialogue() 保留大字标题，其他内容按“对话式”逐句点击推进（符合开局风格）。
+     *    - 开场：showIntro() 三段点击推进，最后 gateTransition() 做“大门打开”转场后进入 play。
+     *
+     * 7) 交互与其它
+     *    - 鼠标点击：推进开场与结局对话；点击关键词触发重开。
+     *    - 作弊码：activateCheat()（关键词 FREEDOM）锁定 GPA=4.0，并提示后续 BOSS 加倍（试玩未实现）。
+     *
+     * 8) 部署与预览
+     *    - 本地：npx serve -l 5500 satire-runner → http://localhost:5500/
+     *    - 线上：可选 Vercel/Pages 等静态站点，根指向 satire-runner 目录。
+     */
+    /**
+     * HUD 文案闪烁反馈：受击/提示时更醒目。
+     */
+    // 文案入口：HUD 顶部提示（短句）
+    // 用法：在调用处传入短句，例如 flashHUD('获得 +0.2 GPA')。
+    // 建议：8-16 字，避免包含 \n，依赖自动换行。
+    function flashHUD(scene, color = '#ff8a8a') {
+      if (flashTimer) flashTimer.remove(false);
+      hudText.setColor(color);
+      // 同步底部 HUD 的闪烁颜色
+      if (bottomBarEl) {
+        bottomBarEl.style.setProperty('--flashColor', color);
+        bottomBarEl.classList.add('flash');
+      }
+      flashTimer = scene.time.addEvent({ delay: 800, callback: () => {
+        hudText.setColor('#ddd');
+        if (bottomBarEl) bottomBarEl.classList.remove('flash');
+      }});
+    }
+
+    // 统一更新 HUD 文案（同时更新画布与底部状态栏）
+    function setHUDText(msg) {
+      hudText.setText(msg);
+      if (bottomHUDEl) bottomHUDEl.textContent = msg;
+    }
+
+    // 为每一次碰撞生成风格化评价文案（状态栏显示）
+    // 根据类型与类别返回统一风格短句，并带上项目名以增强代入感
+    function makeHudComment(type, cls, name, usedDoubleJump = false) {
+      const n = name && name.trim() ? name.trim() : (cls === 'ddl' ? 'DDL' : (cls === 'hw' ? '作业' : ''));
+      // 逐项文案定制库
+      const MAP = {
+        pos: {
+          hw: {
+            '普物作业': '✅ 普物稳一手，绩点小涨。',
+            '化学实验': '✅ 实验报告不翻车，绩点+。',
+            '生物解剖': '✅ 解剖图画得像艺术，绩点+。',
+            '语文论文': '✅ 文思泉涌，字字带分。',
+            '历史阅读笔记': '✅ 史料卡片成册，绩点稳。',
+            '政治小论文': '✅ 观点清晰，绩点+。',
+            '工程制图': '✅ 线条拉满，绩点+。'
+          },
+          book: {
+            '数学习题册': '✅ 数学被你拿捏，绩点+。',
+            '英语Pre': '✅ 演示不卡壳，绩点+。'
+          }
+        },
+        neg: {
+          ddl: {
+            default: '⏰ 迟交作业还想满绩？',
+            onDouble: '⏰ 二段跳救场：这次不扣，但下次可没戏。'
+          },
+          flyer: {
+            '补习班传单': '📎 课都没做完，还想报补习班？',
+            '社团招新传单': '📎 课那么多，还想要课余生活？',
+            '考证培训传单': '📎 证书闪闪，绩点暗暗。',
+            '学术讲座传单': '📎 讲座很香，GPA更真。',
+            '竞赛报名单': '📎 竞赛很燃，绩点发寒。'
+          },
+          book: {
+            '刷题册加量': '📕 刷题加量，绩点减量。',
+            '高频题库加练': '📕 高频加练，高频扣分。'
+          }
+        }
+      };
+      // 正向：作业/习题册
+      if (type === 'pos') {
+        const byCls = MAP.pos[cls] || {};
+        if (n && byCls[n]) return byCls[n];
+        // 默认正向文案
+        return `✅ ${n || '作业'}做完，绩点涨了！`;
+      }
+      // 负向：DDL 特例（二段跳豁免）
+      if (cls === 'ddl') {
+        if (usedDoubleJump) return MAP.neg.ddl.onDouble;
+        return MAP.neg.ddl.default;
+      }
+      // 负向：传单/习题册
+      if (cls === 'flyer' || cls === 'book') {
+        const byCls = MAP.neg[cls] || {};
+        if (n && byCls[n]) return byCls[n];
+        // 默认负向文案
+        if (cls === 'flyer') return '📰 课那么多，还想要课余生活？';
+        return `📕 ${n || '习题册'}砸下来，还想不扣绩点？`;
+      }
+      // 其他未知负向类别：统一提示
+      return '⚠️ 扣分事件';
+    }
+
+    /**
+     * 设置角色面向并进行较快速的平滑镜像过渡。
+     * 左向：scaleX 为正；右向：scaleX 为负。
+     */
+    function setFacing(scene, dir) {
+      if (!player) return;
+      // 若方向未变化，不进行镜像
+      if (facingDir === dir) return;
+      facingDir = dir;
+      // 使用固定基础缩放，避免在过渡中根据瞬时 scaleX 计算导致逐步变窄
+      const baseScale = player.baseScaleX || Math.abs(player.scaleX || 1) || 1;
+      const targetScaleX = (dir === 'right' ? -baseScale : baseScale);
+      try { if (flipTween) flipTween.remove(); } catch {}
+      flipTween = scene.tweens.add({ targets: player, scaleX: targetScaleX, duration: 140, ease: 'Quad.easeOut' });
+    }
+
+    /**
+     * 统一重置函数：清理计时器/图层/DOM障碍，并重置核心 STATE，最后重启场景。
+     * - 释放 HUD 闪烁计时器
+     * - 清空安全路径图层
+     * - 清理 CSS Layer 与障碍数组、生成统计
+     * - 重置 GPA、计时、阶段、躲避计数、作弊标记
+     * - 重启 Phaser 场景（会重新绑定输入、重建实体）
+     */
+    // 重置与重开（不涉及文案）。如需在重开时提示，可在调用 resetGame 前/后用 showOverlay 或 flashHUD 显示短文案。
+    function resetGame(sceneRef) {
+      // 清理 HUD 闪烁计时器
+      try { if (flashTimer) { flashTimer.remove(false); flashTimer = null; } } catch {}
+      // 清空安全路径图层
+      try { if (safePathGraphics) safePathGraphics.clear(); } catch {}
+      // 清理 CSS 层与障碍数组
+      try {
+        if (cssLayer) {
+          cssLayer.innerHTML = '';
+        }
+        cssObstacles = [];
+      } catch {}
+      // 重置 CSS 障碍生成平衡统计
+      cssStats = { posSpawned: 0, negSpawned: 0 };
+      // 重置核心状态
+    Object.assign(STATE, { gpa: 2.0, avoidedCount: 0, cheatActive: false, elapsed: 0, phase: 'play' });
+      // 重启场景：优先使用传入的 scene，否则获取当前激活场景
+      try {
+        const s = sceneRef || (game && game.scene && game.scene.getScenes ? game.scene.getScenes(true)[0] : null);
+        if (s && s.scene && s.scene.restart) {
+          s.scene.restart();
+        } else if (sceneRef && sceneRef.scene && sceneRef.scene.restart) {
+          sceneRef.scene.restart();
+        } else if (game && game.scene && game.scene.start) {
+          const active = game.scene.getScenes(true)[0];
+          if (active && active.sys && active.sys.config && active.sys.config.key) {
+            const key = active.sys.config.key;
+            game.scene.stop(key);
+            game.scene.start(key);
+          }
+        }
+      } catch (e) {
+        console.warn('Scene restart fallback encountered:', e);
+      }
+    }
+
+    /**
+     * 安全路径高亮演出：临时显示一条可行跑道参考线。
+     */
+    function highlightSafePath(scene) {
+      safePathGraphics.clear();
+      safePathGraphics.lineStyle(3, 0x7ef0ff, 0.9);
+      const y = HEIGHT - 120;
+      safePathGraphics.strokePath();
+      safePathGraphics.beginPath();
+      safePathGraphics.moveTo(60, y);
+      safePathGraphics.lineTo(WIDTH-60, y);
+      safePathGraphics.strokePath();
+      scene.time.addEvent({ delay: 3500, callback: () => safePathGraphics.clear() });
+    }
+
+    /**
+     * 统一叠层界面：胜利/失败/彩蛋提示与 R 键重开。
+     */
+    // 文案入口：通用覆盖层（提示/演出）
+    // 调用：showOverlay(scene, title, subtitle, color, restartKeywords)
+    // - title：主标题（短句）
+    // - subtitle：副标题/说明（自动换行，避免手动 \n）
+    // - restartKeywords：按钮数组 [{ label, onClick }]，如“我知道了”“重开”等
+    // 示例：showOverlay(scene, '提示标题', '副标题说明文案', '#ffffff', [{ label: '我知道了', onClick: () => {/*...*/} }])
+    function showOverlay(scene, title, subtitle, color, restartKeywords = []) {
+      const rect = scene.add.rectangle(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 0x000000, 0.65).setDepth(1000).setScrollFactor(0);
+      // 标题与副标题：增加高级换行、居中对齐与行距，避免中文被行距或换行裁切
+      const titleText = scene.add.text(
+        WIDTH/2,
+        HEIGHT/2 - 60,
+        title,
+        {
+          fontSize: '42px',
+          color,
+          align: 'center',
+          wordWrap: { width: WIDTH - 140, useAdvancedWrap: true }
+        }
+      ).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+      titleText.setLineSpacing(8);
+
+      const subtitleText = scene.add.text(
+        WIDTH/2,
+        HEIGHT/2 + 20,
+        subtitle,
+        {
+          fontSize: '20px',
+          color: '#ffffff',
+          align: 'center',
+          wordWrap: { width: WIDTH - 160, useAdvancedWrap: true }
+        }
+      ).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+      subtitleText.setLineSpacing(10);
+      // 结局关键词重开：仅点击关键词触发重启
+      if (restartKeywords.length > 0) {
+        const kwY = HEIGHT/2 + 80;
+        const gap = 20;
+        const startX = WIDTH/2 - ((restartKeywords.length - 1) * (90 + gap)) / 2;
+        // 引导文案
+        scene.add.text(WIDTH/2, kwY - 22, '点击关键词重开', { fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+        restartKeywords.forEach((kw, i) => {
+          const x = startX + i * (90 + gap);
+          const t = scene.add.text(x, kwY, `「${kw}」`, { fontSize: '16px', color: '#e0ff7e' }).setOrigin(0.5).setDepth(1001).setScrollFactor(0).setInteractive({ useHandCursor: true });
+          t.on('pointerover', () => t.setColor('#ffffff'));
+          t.on('pointerout', () => t.setColor('#e0ff7e'));
+          t.once('pointerdown', () => resetGame(scene));
+        });
+      }
+    }
+
+    /**
+     * 结局叙事：保留大字标题，其余内容改为逐句对话式点击推进。
+     * @param {Phaser.Scene} scene
+     * @param {string} title - 大字标题（始终保留）
+     * @param {string[]} lines - 逐句对话内容
+     * @param {string} color - 标题颜色
+     * @param {string[]} restartKeywords - 结尾用于重开的一组关键词
+     */
+    // 文案入口：结局叙事（对话式）
+    // 调用：showEndingDialogue(title, lines, color, restartKeywords)
+    // - title：结局大字标题（短句，10-14 字为宜）
+    // - lines：逐句对话数组（点击推进；每句不超过 26-28 字，避免 \n）
+    // - restartKeywords：最后一屏的关键词按钮（如“复读”“进组”），用于重开
+    // 示例：showEndingDialogue('成功：新的内卷牢笼', ['第一句','第二句','第三句'], '#ffffff', [{ label: '进组', onClick: () => resetGame(scene) }])
+function showEndingDialogue(scene, title, lines, color, restartKeywords = []) {
+      const overlay = scene.add.rectangle(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 0x000000, 0.70).setDepth(1000).setScrollFactor(0);
+      const titleText = scene.add.text(
+        WIDTH/2,
+        HEIGHT/2 - 90,
+        title,
+        {
+          fontSize: '46px',
+          color,
+          align: 'center',
+          wordWrap: { width: WIDTH - 140, useAdvancedWrap: true }
+        }
+      ).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+      titleText.setLineSpacing(10);
+
+      let idx = 0;
+      const content = scene.add.text(
+        WIDTH/2,
+        HEIGHT/2 + 10,
+        (lines && lines.length > 0) ? lines[0] : '',
+        {
+          fontSize: '22px',
+          color: '#ffffff',
+          align: 'center',
+          wordWrap: { width: WIDTH - 160, useAdvancedWrap: true }
+        }
+      ).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+      content.setLineSpacing(12);
+
+      const hint = scene.add.text(WIDTH/2, HEIGHT/2 + 80, '点击继续', { fontSize: '14px', color: '#cccccc' }).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+
+      const advance = () => {
+        idx++;
+        if (idx < (lines ? lines.length : 0)) {
+          content.setText(lines[idx]);
+          scene.input.once('pointerdown', advance);
+        } else {
+          hint.setText('点击关键词重开');
+          // 展示关键词用于重开
+          if (restartKeywords.length > 0) {
+            const kwY = HEIGHT/2 + 120;
+            const gap = 20;
+            const startX = WIDTH/2 - ((restartKeywords.length - 1) * (90 + gap)) / 2;
+            restartKeywords.forEach((kw, i) => {
+              const x = startX + i * (90 + gap);
+              const t = scene.add.text(x, kwY, `「${kw}」`, { fontSize: '16px', color: '#e0ff7e' }).setOrigin(0.5).setDepth(1001).setScrollFactor(0).setInteractive({ useHandCursor: true });
+              t.on('pointerover', () => t.setColor('#ffffff'));
+              t.on('pointerout', () => t.setColor('#e0ff7e'));
+              t.once('pointerdown', () => resetGame(scene));
+            });
+          }
+        }
+      };
+      // 首次点击推进到下一句
+  scene.input.once('pointerdown', advance);
+}
+
+    /**
+     * 对话集中管理 API：让你可以在 index.html 文本区统一添加/修改对话。
+     * 使用方式：
+     *  - addDialogue(key, cfg)：注册一段对话。
+     *    · cfg.type: 'intro' | 'ending' | 'overlay'
+     *    · 当 type==='intro'：cfg.lines = ['第一句','第二句',...]
+     *    · 当 type==='ending'：cfg.title, cfg.lines, cfg.color, cfg.restartKeywords
+     *    · 当 type==='overlay'：cfg.title, cfg.subtitle, cfg.color, cfg.restartKeywords
+     *  - playDialogue(scene, key)：按注册内容播放该对话。
+     */
+    const DIALOGUES = {};
+    function addDialogue(key, cfg) { DIALOGUES[key] = cfg; }
+    function playDialogue(scene, key) {
+      const cfg = DIALOGUES[key];
+      if (!cfg) return false;
+      const t = (cfg.type || '').toLowerCase();
+      if (t === 'ending') {
+        showEndingDialogue(scene, cfg.title || '', cfg.lines || [], cfg.color || '#ffffff', cfg.restartKeywords || []);
+        return true;
+      } else if (t === 'overlay') {
+        showOverlay(scene, cfg.title || '', cfg.subtitle || '', cfg.color || '#ffffff', cfg.restartKeywords || []);
+        return true;
+      } else if (t === 'intro') {
+        showIntroFromLines(scene, cfg.lines || []);
+        return true;
+      }
+      return false;
+    }
+
+    // Intro 对话播放（按行点击推进，结束后触发开门转场）
+    function showIntroFromLines(scene, lines) {
+      STATE.phase = 'intro';
+      const overlay = scene.add.rectangle(WIDTH/2, HEIGHT/2, WIDTH, HEIGHT, 0x000000, 0.72).setDepth(1000).setScrollFactor(0);
+      const content = scene.add.text(
+        WIDTH/2,
+        HEIGHT/2,
+        (lines && lines.length > 0) ? lines[0] : '你是来到北京大学的一位平平无奇的大学生',
+        { fontSize: '28px', color: '#ffffff', wordWrap: { width: WIDTH-120, useAdvancedWrap: true } }
+      ).setOrigin(0.5).setDepth(1001).setScrollFactor(0);
+      // 每段对话对应的底部状态栏文案
+      const statusLines = [
+        '上下左右或wasd键控制移动/跳跃',
+        '你听说大学里很多活动呀，好想参加',
+        '“我不能再颓废下去了！”你暗自思忖。',
+        '去规划你的大学生活吧~'
+      ];
+      // 初始显示第一段的状态栏
+      try { setHUDText(statusLines[0]); } catch {}
+      let idx = 0;
+      const advance = () => {
+        idx++;
+        if (idx < (lines ? lines.length : 0)) {
+          content.setText(lines[idx]);
+          // 同步更新底部状态栏
+          try { setHUDText(statusLines[idx] || ''); } catch {}
+          scene.input.once('pointerdown', advance);
+        } else {
+          // 结束：开门过渡，随后移除遮罩并进入游戏
+          gateTransition(scene, () => {
+            overlay.destroy();
+            content.destroy();
+            STATE.phase = 'play';
+          });
+        }
+      };
+      // 第一次点击推进到下一段
+      scene.input.once('pointerdown', advance);
+    }
+
+    // 文案集中添加区（示例与默认值）：你可以直接在这里修改文本
+    // ——— 修改示例 ———
+    // addDialogue('intro', { type: 'intro', lines: ['第一句','第二句','第三句'] });
+    // addDialogue('success', { type: 'ending', title: '成功：新的内卷牢笼', lines: ['句1','句2'], color: '#7ef0ff', restartKeywords: ['进组'] });
+    // addDialogue('fail', { type: 'ending', title: '失败：北京退学', lines: ['句1','句2'], color: '#ff8a8a', restartKeywords: ['复读'] });
+    // addDialogue('notice', { type: 'overlay', title: '提示标题', subtitle: '副标题说明', color: '#ffffff', restartKeywords: ['我知道了'] });
+    // ——— 默认文案（与当前游戏一致；如需改文案，直接改这里） ———
+    addDialogue('intro', {
+      type: 'intro',
+      lines: [
+        '你重生成了一名平平无奇的高中生',
+        '通过你的努力，你成为了北京大学中一名平平无奇的大学生',
+        '第一学期，你懵懂无知，只拿到了2.0的GPA',
+        '你满心欢喜地开启了内卷之旅'
+      ]
+    });
+    addDialogue('success', {
+      type: 'ending',
+      title: '成功：进入新的内卷牢笼',
+      lines: ['内卷的时代没有胜者',
+              '内卷没有尽头',
+              '校门渐变为铁栏',
+              '欢迎来到新的规训与竞争'
+      ],
+      color: '#7efc7e',
+      restartKeywords: ['进组']
+    });
+    addDialogue('fail', {
+      type: 'ending',
+      title: '失败：北京退学',
+      lines: [
+        '作业倾盆而下',
+        '等等，你说我被退学了?',
+        '你悔恨，你不甘',
+        '你选择了再来一次。。。。'
+      ],
+      color: '#ff8a8a',
+      restartKeywords: ['复读']
+    });
+
+    // 支线结局：超过 100s 仍未结束（既未成功也未失败），触发“迷茫：为何而卷？”
+    addDialogue('ambiguous', {
+      type: 'ending',
+      title: '迷茫：为何而卷？',
+      lines: [
+        '我……好像在到处奔忙',
+        '但是……为什么我感觉',
+        '……仍然是一种空虚感',
+        '内卷时代没有灯塔，',
+        '你选择继续摸黑，寻找自己的方向'
+      ],
+      color: '#e0ff7e',
+      restartKeywords: ['降转']
+    });
+
+    /**
+     * 开场叙事：三段点击推进，最后触发“大门打开”过渡并进入游戏。
+     */
+    // 文案入口：开场叙事（三段点击推进）
+    // 修改：在 showIntro() 内的“开场三段文案数组”替换为你的句子。
+    // 建议：每句不超过 28 个中文字符；不要加入 \n；保持自然换行。
+    // 示例：const introLines = ['开场-第一句', '开场-第二句', '开场-第三句'];
+function showIntro(scene) {
+  // 若已通过对话 API 定义 intro，则使用集中管理的文本播放
+  if (playDialogue(scene, 'intro')) return;
+  // 否则回退到旧版本默认三段文案
+  showIntroFromLines(scene, [
+    '你是来到北京大学的一位平平无奇的大学生',
+    '第一学期，你懵懂无知，只拿到了2.0的GPA',
+    '你满心欢喜的开始了内卷生活'
+  ]);
+}
+
+    /**
+     * 大门打开转场：左右门板从中间向两侧滑出，平滑揭示场景。
+     * @param {Phaser.Scene} scene
+     * @param {Function} onComplete - 完成回调
+     */
+    function gateTransition(scene, onComplete) {
+      const doorColor = 0x111111;
+      const leftDoor = scene.add.rectangle(WIDTH/2 - WIDTH/4, HEIGHT/2, WIDTH/2, HEIGHT, doorColor, 0.95).setDepth(1002).setScrollFactor(0);
+      const rightDoor = scene.add.rectangle(WIDTH/2 + WIDTH/4, HEIGHT/2, WIDTH/2, HEIGHT, doorColor, 0.95).setDepth(1002).setScrollFactor(0);
+      // 在门板上添加细微高光与描边，提升质感
+      const gloss = scene.add.graphics().setDepth(1003).setScrollFactor(0);
+      gloss.lineStyle(2, 0x333333, 1.0);
+      gloss.strokeRect(leftDoor.x - leftDoor.width/2, leftDoor.y - leftDoor.height/2, leftDoor.width, leftDoor.height);
+      gloss.strokeRect(rightDoor.x - rightDoor.width/2, rightDoor.y - rightDoor.height/2, rightDoor.width, rightDoor.height);
+
+      // 同步动画：左右门板滑出 + 渐隐高光
+      const dur = 1200;
+      scene.tweens.add({ targets: leftDoor, x: -WIDTH/2, duration: dur, ease: 'Cubic.easeInOut' });
+      scene.tweens.add({ targets: rightDoor, x: WIDTH + WIDTH/2, duration: dur, ease: 'Cubic.easeInOut' });
+      scene.tweens.add({ targets: gloss, alpha: 0, duration: dur, ease: 'Cubic.easeInOut' });
+
+      scene.time.delayedCall(dur + 50, () => { leftDoor.destroy(); rightDoor.destroy(); gloss.destroy(); if (onComplete) onComplete(); });
+    }
+
+    /**
+     * 通关：达到用时与 GPA 条件，显示“新牢笼”主题文案。
+     */
+    // 文案入口：成功结局的大标题与对话内容
+    // 修改：在 showSuccess() 内传给 showEndingDialogue 的 title 与 lines；关键词在 restartKeywords（如“进组”）。
+    // 建议：lines 3-6 句，循序渐进地表达“新牢笼”主题。
+function showSuccess(scene) {
+  STATE.phase = 'success';
+  // 结局触发时清理屏幕上的所有障碍（Canvas + CSS DOM）
+  clearActiveObstacles(scene);
+  // 若已通过对话 API 定义 success，则使用集中管理的文本播放
+  if (playDialogue(scene, 'success')) return;
+  // 否则回退到旧版本默认文案
+  showEndingDialogue(
+    scene,
+    '成功：进入新的内卷牢笼',
+    ['校门渐变为铁栏', '欢迎来到新的规训与竞争'],
+    '#7efc7e',
+    ['进组']
+  );
+}
+
+    /**
+     * 失败：GPA 低于阈值，显示“建议复读”。
+     */
+    // 文案入口：失败结局的大标题与对话内容
+    // 修改：在 showFail() 内传给 showEndingDialogue 的 title 与 lines；关键词在 restartKeywords（如“复读”）。
+    // 建议：lines 3-6 句，承接游戏体验与情绪。
+function showFail(scene) {
+  STATE.phase = 'fail';
+  // 结局触发时清理屏幕上的所有障碍（Canvas + CSS DOM）
+  clearActiveObstacles(scene);
+  // 若已通过对话 API 定义 fail，则使用集中管理的文本播放
+  if (playDialogue(scene, 'fail')) return;
+  // 否则回退到旧版本默认文案
+  showEndingDialogue(
+    scene,
+    '失败：北京退学',
+    [
+      '作业倾盆而下',
+      '等等，你说我被退学了?',
+      '沉默......',
+      '你悔恨，你不甘',
+      '你选择了再来一次......',
+      '点击关键词重开'
+    ],
+    '#ff8a8a',
+    ['复读']
+  );
+}
+
+    /**
+     * 支线结局：超过 100s 仍然未结束，展示“迷茫：为何而卷？”主题。
+     */
+    function showAmbiguous(scene) {
+      STATE.phase = 'ambiguous';
+      // 结局触发时清理屏幕上的所有障碍（Canvas + CSS DOM）
+      clearActiveObstacles(scene);
+      // 若已通过对话 API 定义 ambiguous，则使用集中管理的文本播放
+      if (playDialogue(scene, 'ambiguous')) return;
+      // 否则回退到默认文案
+      showEndingDialogue(
+        scene,
+        '迷茫：为何而卷？',
+        [
+          '我……好像在到处奔忙',
+          '但是……为什么我感觉',
+          '……仍然是一种空虚感',
+          '内卷时代没有灯塔，你选择继续摸黑，寻找自己的方向'
+        ],
+        '#e0ff7e',
+        ['降转']
+      );
+    }
+
+    /**
+     * 隐藏彩蛋：连续躲避计数达标后进入“逃课通道”。
+     */
+    // 文案入口：彩蛋/特殊流程
+    // 用法：可用 showOverlay 或 showEndingDialogue 组织彩蛋文案与互动；当前为点击任意位置重开示例。
+    function enterFreeEaster(scene) {
+      // 按出 FREE 触发的彩蛋：以对话式结局呈现，关键词“体验”重开
+      STATE.phase = 'easter';
+      // 结局触发前清屏，避免干扰
+      clearForEaster(scene);
+      showEndingDialogue(
+        scene,
+        '彩蛋：你找到了通往自由的道路',
+        [
+          '我明明有一个不羁的灵魂，为什么要被困在这作业之中？',
+          '很高兴看到你，在亦步亦趋的社会时钟中',
+          '仍葆有一份突破规则的想象力',
+          '你发现生命的意义在于体验',
+          '周遭的环境已经影响不到你的心境',
+          '月亮和六便士',
+          '我们都要！'
+        ],
+        '#7ef0ff',
+        ['体验']
+      );
+    }
+
+    function enterEaster(scene) {
+      // 隐藏彩蛋：不使用全屏遮盖，仅顶部提示；点击任意位置重开
+      STATE.phase = 'easter';
+      // 彩蛋触发时清屏
+      clearForEaster(scene);
+      const toastBg = scene.add.rectangle(WIDTH/2, 60, 520, 50, 0x000000, 0.55).setStrokeStyle(1, 0x444444);
+      scene.add.text(
+        WIDTH/2,
+        60,
+        '隐藏彩蛋：逃课通道 ｜ 点击任意位置重开',
+        { fontSize: '18px', color: '#e0ff7e' }
+      ).setOrigin(0.5);
+      scene.input.once('pointerdown', () => resetGame(scene));
+    }
+
+    // 清理当前场景中已显示的障碍（不重置其他状态）
+    function clearActiveObstacles(scene) {
+      try {
+        if (obstacles && obstacles.clear) {
+          // 清空物理组并销毁成员
+          obstacles.clear(true, true);
+        }
+      } catch {}
+      try {
+        if (cssLayer) {
+          // 清空 CSS 障碍层中的 DOM 元素
+          cssLayer.innerHTML = '';
+        }
+        // 重置本地记录的 CSS 障碍引用数组
+        cssObstacles = [];
+      } catch {}
+    }
+    // 彩蛋结局前的清屏：清障碍、清 HUD、移除闪烁、清安全路径，并隐藏玩家
+    function clearForEaster(scene) {
+      try { if (flashTimer) { flashTimer.remove(false); flashTimer = null; } } catch {}
+      try { if (safePathGraphics) safePathGraphics.clear(); } catch {}
+      try { setHUDText(''); } catch {}
+      try { if (bottomBarEl) bottomBarEl.classList.remove('flash'); } catch {}
+      clearActiveObstacles(scene);
+      try { if (player && player.setVisible) player.setVisible(false); } catch {}
+    }
+    /**
+     * 作弊码 FREEDOM：锁定 GPA=4.0，并提示后续 BOSS 加倍（试玩未实现）。
+     */
+    function activateCheat(scene) {
+      STATE.cheatActive = true;
+      STATE.gpa = 4.0;
+      setHUDText('作弊启用：GPA锁定4.0，BOSS血量将翻倍（试玩未实现）');
+      flashHUD(scene);
+    }
+    // 在背景板上生成随机的数学和物理公式（Phaser 文本），不使用文字框，生命周期 3-10s
+    function spawnFormula(scene) {
+      if (STATE.phase !== 'play') return;
+      const formulas = [
+        'E = mc²', 'F = ma', 'v = s / t', 'a = Δv / Δt', 'p = ρgh', 'V = IR', 'P = IV',
+        'λ = h / p', 'ΔE = hν', 'sin²θ + cos²θ = 1', 'e^{iπ} + 1 = 0',
+        '∫ sin x dx = -cos x + C', 'd/dx (x²) = 2x', '∑ k = n(n+1)/2',
+        'S = vt', 'W = F · s', 'pV = nRT', 'x = x₀ + vt', 'f(x) = ax² + bx + c'
+      ];
+      const text = Phaser.Utils.Array.GetRandom(formulas);
+      const life = Phaser.Math.FloatBetween(3.0, 10.0);
+      const fontSize = Phaser.Math.Between(16, 28);
+      const color = '#000000';
+      const alpha = Phaser.Math.FloatBetween(0.25, 0.6);
+      // 避开顶部横幅与底部状态栏
+      const BANNER_H = 64;
+      const BOTTOM_H = 48;
+      const cam = scene.cameras.main;
+      const worldWidth = scene.physics.world.bounds.width;
+      // 与地图绑定：使用世界坐标，在当前相机视口内随机生成，随相机滚动
+      const x = Phaser.Math.Clamp(cam.scrollX + Phaser.Math.Between(40, WIDTH - 40), 40, worldWidth - 40);
+      const y = Phaser.Math.Between(BANNER_H + 24, HEIGHT - BOTTOM_H - 24);
+      // 作为背景文本：固定到摄像机（与背景板一致），深度低于玩家
+      const t = scene.add.text(x, y, text, {
+        fontSize: `${fontSize}px`,
+        fontFamily: 'Cambria Math, Times, serif',
+        color: color,
+      }).setOrigin(0.5).setAlpha(alpha).setDepth(-9).setScrollFactor(1);
+      // 轻微随机旋转，贴合“板书”感
+      t.setAngle(Phaser.Math.Between(-8, 8));
+      // 生命周期结束后销毁
+      scene.time.delayedCall(life * 1000, () => { t.destroy(); });
+    }
+    // 生成一个 CSS 竖直掉落障碍（DOM 元素），动画结束后自动清理并计入“躲避”
+    // 文案入口：CSS 文本雨障碍（词库）
+    // 修改：在函数内部的文本来源处（如随机挑选词条）添加你的短语；
+    // 建议：短语 2-8 字，避免超长影响碰撞与视觉；可主题化（如“绩点”“论文”“ddl”“保研”）。
+    function spawnCssObstacle() {
+      if (STATE.phase !== 'play') return;
+      if (!cssLayer) return;
+      const BANNER_H = 64; // 顶部横幅高度（用于将生成点藏在横幅之后）
+      // 平衡生成：加分与扣分保持大致相等；持平时偶尔生成“试卷”（混合）
+      let targetType;
+      if (cssStats.posSpawned > cssStats.negSpawned) targetType = 'neg';
+      else if (cssStats.negSpawned > cssStats.posSpawned) targetType = 'pos';
+      else {
+        const r = Math.random();
+        // 取消 mixed（仅 exam），避免空池导致 label 为 null
+        targetType = r < 0.5 ? 'pos' : 'neg';
+      }
+      // 随机事件词条（event:true）不参与 CSS 文本雨生成；排除 exam，保留 CSS flyer 与作业雨
+      const pool = LABELS.filter(l => l.type === targetType && !l.event && l.cls !== 'exam');
+      let label = Phaser.Utils.Array.GetRandom(pool);
+      // 防御：若筛选后为空（理论上不会），则直接返回以避免 TypeError
+      if (!label) return;
+      // 控制 CSS flyer 生成概率，避免过密导致闪烁
+      const flyerSpawnChance = 0.3; // 30% 概率生成 CSS 小黄框
+      if (label.cls === 'flyer' && Math.random() > flyerSpawnChance) return;
+      const el = document.createElement('div');
+      el.className = `css-obstacle ${label.cls}`;
+      el.textContent = label.text;
+      // 提供名称给 HUD 文案生成器（makeHudComment），用于逐项定制
+      el.dataset.text = label.text;
+      const w = Phaser.Math.Between(90, 140);
+      const h = Phaser.Math.Between(32, 44);
+      const leftPct = Phaser.Math.Between(5, 95);
+      const dur = Phaser.Math.FloatBetween(3.5, 6.0);
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+      // 记录生成时间与寿命（避免长期滞留）：flyer 6s，exam 8s，其它 12s
+      el.dataset.spawnAt = String(STATE.elapsed || 0);
+      el.dataset.life = String(label.cls === 'flyer' ? 6 : (label.cls === 'exam' ? 8 : 12));
+      // 以“世界坐标”生成，并在每帧根据相机滚动换算为屏幕坐标进行渲染
+      const activeScene = (game && game.scene && game.scene.getScenes) ? game.scene.getScenes(true)[0] : null;
+      const cam = activeScene ? activeScene.cameras?.main : null;
+      const wBounds = activeScene?.physics?.world?.bounds || null;
+      const WORLD_W = wBounds ? wBounds.width : WIDTH;
+      const baseScrollX = cam ? cam.scrollX : 0;
+      const baseScrollY = cam ? cam.scrollY : 0;
+      // 非 flyer：竖直下落
+      if (label.cls !== 'flyer') {
+        // 全图生成：在整个世界宽度范围内随机生成，不依赖相机位置
+        const wx = Phaser.Math.Between(20, Math.max(20, WORLD_W - 20));
+        // 初始世界 Y：相对于世界原点，不随相机滚动；生成点藏在横幅之后
+        const wy = BANNER_H - Phaser.Math.Between(60, 100);
+        el.dataset.wx = String(wx);
+        el.dataset.wy = String(wy);
+        el.dataset.vx = '0';
+        // DDL：从顶端以“重力加速度”自由落体（初始速度为 0）
+        if (label.cls === 'ddl') {
+          el.dataset.vy = '0';
+          // 重力加速度（px/s^2），可微调观感
+          el.dataset.ay = String(Phaser.Math.FloatBetween(480, 720));
+        } else {
+          // 其他文本雨保持恒速下落
+          el.dataset.vy = String(Phaser.Math.Between(120, 220));
+        }
+        // 初始屏幕定位
+        const sx = wx - baseScrollX;
+        const sy = wy - baseScrollY;
+        el.style.transform = `translate(${sx}px, ${sy}px)`;
+      } else {
+        // flyer：倾斜旋转下落（轻微水平漂移 + 自旋），生成点藏在横幅之后；全图随机
+        const wx = Phaser.Math.Between(20, Math.max(20, WORLD_W - 20));
+        // flyer 初始更靠上（可能在视窗顶部之上），相对于世界原点
+        const wy = BANNER_H - Phaser.Math.Between(70, 120);
+        el.dataset.wx = String(wx);
+        el.dataset.wy = String(wy);
+        el.dataset.vx = String(Phaser.Math.Between(-40, 40));
+        el.dataset.vy = String(Phaser.Math.Between(140, 240));
+        el.dataset.angle = String(Phaser.Math.Between(-15, 15));
+        el.dataset.angularVel = String(Phaser.Math.Between(-90, 90)); // deg/s
+        const sx = wx - baseScrollX;
+        const sy = wy - baseScrollY;
+        el.style.transform = `translate(${sx}px, ${sy}px) rotate(${el.dataset.angle}deg)`;
+      }
+      el.dataset.type = label.type;
+      el.dataset.cls = label.cls;
+      el.dataset.value = String(label.value);
+      el.dataset.collided = '0';
+      el.dataset.id = String(Date.now() + Math.random());
+      cssLayer.appendChild(el);
+      cssObstacles.push(el);
+      if (label.type === 'pos') cssStats.posSpawned++;
+      else if (label.type === 'neg') cssStats.negSpawned++;
+      // 不再使用 CSS 动画结束事件；改为在更新循环里越界清理
+    }
+
+    // 每帧更新 CSS 障碍的位置（基于世界坐标），并进行越界清理
+    function updateCssObstacles(scene, delta) {
+      if (!cssLayer || STATE.phase !== 'play') return;
+      const cam = scene.cameras.main;
+      const dt = delta / 1000;
+      const margin = 100;
+      // 使用物理世界边界作为世界尺寸来源，避免直接依赖局部变量
+      const wBounds = (scene.physics && scene.physics.world && scene.physics.world.bounds) ? scene.physics.world.bounds : null;
+      const WORLD_W = wBounds ? wBounds.width : WIDTH;
+      const WORLD_H = wBounds ? wBounds.height : HEIGHT;
+      cssObstacles = cssObstacles.filter(el => document.body.contains(el));
+      for (const el of cssObstacles) {
+        let wx = parseFloat(el.dataset.wx || '0');
+        let wy = parseFloat(el.dataset.wy || '0');
+        const vx = parseFloat(el.dataset.vx || '0');
+        let vy = parseFloat(el.dataset.vy || '0');
+        const ay = parseFloat(el.dataset.ay || '0');
+        // 运动更新
+        if (el.dataset.cls === 'flyer') {
+          wx += vx * dt;
+          wy += vy * dt;
+          let angle = parseFloat(el.dataset.angle || '0');
+          const angVel = parseFloat(el.dataset.angularVel || '0');
+          angle += angVel * dt;
+          el.dataset.angle = String(angle);
+        } else {
+          // DDL：应用重力加速度，形成自由落体效果
+          if (el.dataset.cls === 'ddl') {
+            vy += ay * dt;
+            // 终端速度上限，避免过快导致穿越
+            if (vy > 900) vy = 900;
+            el.dataset.vy = String(vy);
+          }
+          wy += vy * dt;
+        }
+        el.dataset.wx = String(wx);
+        el.dataset.wy = String(wy);
+        // 换算到屏幕坐标
+        const sx = wx - cam.scrollX;
+        const sy = wy - cam.scrollY;
+        if (el.dataset.cls === 'flyer') {
+          const angle = parseFloat(el.dataset.angle || '0');
+          el.style.transform = `translate(${sx}px, ${sy}px) rotate(${angle}deg)`;
+        } else {
+          el.style.transform = `translate(${sx}px, ${sy}px)`;
+        }
+        // 越界清理（按“世界坐标”判断，与摄像机无关，避免跟随时滞留）
+        if (wx < -margin || wx > WORLD_W + margin || wy < -margin || wy > WORLD_H + margin) {
+          el.remove();
+          STATE.avoidedCount++;
+        } else {
+          // 寿命清理：到时即清除，防止滞留
+          const spawnAt = parseFloat(el.dataset.spawnAt || '0');
+          const life = parseFloat(el.dataset.life || '10');
+          if (!isNaN(spawnAt) && (STATE.elapsed - spawnAt) > life) {
+            el.remove();
+            STATE.avoidedCount++;
+          }
+        }
+      }
+    }
+
+    // 检测 CSS 障碍与玩家的近似矩形碰撞（以屏幕坐标对齐，确保肉眼与碰撞一致）
+    function checkCssCollisions(scene) {
+      if (!cssLayer || !player || STATE.phase !== 'play') return;
+      const canvasRect = cssLayer.getBoundingClientRect();
+      // DOM -> 画布坐标缩放（适配不同容器大小）
+      const scaleX = WIDTH / canvasRect.width;
+      const scaleY = HEIGHT / canvasRect.height;
+      // 将玩家位置换算为“视口坐标”（相对当前相机），避免随背景滚动导致错位
+      const cam = scene?.cameras?.main;
+      const pvx = cam ? (player.x - cam.scrollX) : player.x;
+      const pvy = cam ? (player.y - cam.scrollY) : player.y;
+      // 使用玩家真实显示尺寸，保证碰撞盒与视觉一致
+      const pW = player.displayWidth || 36;
+      const pH = player.displayHeight || 54;
+      const pRect = { x: pvx - pW/2, y: pvy - pH/2, w: pW, h: pH };
+      // 仅保留仍在文档中的障碍
+      cssObstacles = cssObstacles.filter(el => document.body.contains(el));
+      for (const el of cssObstacles) {
+        if (el.dataset.collided === '1') continue;
+        const r = el.getBoundingClientRect();
+        // 将 DOM 盒换算为画布坐标系（同样使用视口坐标系）
+        const x = (r.left - canvasRect.left) * scaleX;
+        const y = (r.top - canvasRect.top) * scaleY;
+        const w = r.width * scaleX;
+        const h = r.height * scaleY;
+        const overlap = !(pRect.x + pRect.w < x || x + w < pRect.x || pRect.y + pRect.h < y || y + h < pRect.y);
+        if (overlap) {
+          el.dataset.collided = '1';
+          const type = el.dataset.type || 'neg';
+          const val = parseFloat(el.dataset.value || '0.1');
+          const activeScene = (game && game.scene && game.scene.getScenes) ? game.scene.getScenes(true)[0] : null;
+          if (type === 'pos') {
+            changeGPA(+val);
+            setHUDText(makeHudComment('pos', el.dataset.cls || '', el.dataset.text || ''));
+            if (activeScene) flashHUD(activeScene, '#8affb5');
+          } else if (type === 'neg') {
+            const cls = el.dataset.cls || '';
+            // 特例：二段跳之后触碰 DDL 不扣分（中性提示，黄色），emoji 保持不变
+            const onGround = player.body.touching.down || player.body.blocked?.down;
+            const usedDoubleJump = (!onGround && jumpCount >= 2);
+            if (cls === 'ddl' && usedDoubleJump) {
+              setHUDText(makeHudComment('neg', 'ddl', el.dataset.text || '', true));
+              if (activeScene) flashHUD(activeScene, '#e0ff7e'); // 中性黄色
+            } else {
+              // 其他情况照常扣分
+              changeGPA(-val);
+              setHUDText(makeHudComment('neg', cls, el.dataset.text || ''));
+              if (activeScene) flashHUD(activeScene, '#ff8a8a');
+            }
+          } else {
+            const sign = Math.random() < 0.5 ? +1 : -1;
+            changeGPA(sign * val);
+            setHUDText(sign > 0 ? '📄 运气好，试卷竟然加分？' : '📄 运气没站你这边。');
+            if (activeScene) flashHUD(activeScene, sign > 0 ? '#8affb5' : '#ff8a8a');
+          }
+          // 清理 DOM 障碍
+          el.remove();
+        }
+      }
+    }
+  </script>
+</body>
+</html>
+
+

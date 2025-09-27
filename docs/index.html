@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang = "zh-CN">
+    <head>
+        <meta charset = "UTF-8">
+        <meta name = "viewport" content = "width=device-width, initial-scale=1.0">
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">   <!-- 防止缓存 -->
+        <title>DawnTilDusk |我的个人网站</title>
+        <!-- 引入 Font Awesome（关键步骤） -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- 引入样式�?-->
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <body>
+        <div class = "container">
+            <header>
+                <div class = "container-inner">
+                    <nav>
+                        <a href="#" class="logo">DawnTilDusk | 我的网站</a>
+                        <ul class="nav-links">
+                            <li><a href="satire-man/">01</a></li>
+                            <li><a href="#">002</a></li>
+                            <li><a href="#" id="easterEgg">003</a></li>
+                            <li><a href="#">004</a></li>
+                            <li><a href="#">005</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </header>
+
+            <main>
+                <section class="content-section">
+                    <button class="section-title-btn" id="toggleProgressBtn">学习进度
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+
+                    <div class="progress-content init-hidden" id="progressContentWrapper">
+                        <div class="add-progress-container">
+                            <input type="text" class="fancy-input" data-name="name" id="progressContent" placeholder="请输入to do">
+                           <button class="btn add-progress-btn" id="addProgressBtn">添加</button>
+                        </div>
+
+                        <div class="progress-section-container" id="progressSectionContainer">
+                        
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+        <footer>
+            <p>© 2025 我的网站 | 构建更优雅的网页</p>
+        </footer>
+        <script src="script.js"></script>
+        <script src="easterEgg.js"></script>
+    </body>
+</html>
