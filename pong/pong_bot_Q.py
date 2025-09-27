@@ -24,27 +24,35 @@ class Bot_0:
 #Q-learning agent 
 class Bot_Q:
     
-    def __init__(self, env, alpha=0.05, gamma=0.9, epsilon=0.000849):
+    def __init__(self, env, side = 1, alpha=0.05, gamma=0.9, epsilon=0.01, decaying = 0.99999995):
         self.env = env
-        self.Q = np.zeros((2, 2, 21, 21, 3)) #state: ball_x_dir, ball_y_dir, l_y_diff, r_y_diff; action: down, stay, up
+        self.side = side
+        self.Q = np.random.rand(5, 5, 10, 10, 10, 10, 3)
     
-    def get_state(self):
-        ball_x_dir = 1 if self.env.ball_speed[0] > 0 else 0
-        ball_y_dir = 1 if self.env.ball_speed[1] > 0 else 0
-        l_y_diff = (self.env.pad_y[0] + self.env.pad_height // 2) - self.env.ball_y
-        r_y_diff = (self.env.pad_y[1] + self.env.pad_height // 2) - self.env.ball_y
+    def diff(self, val, st, ed, n):
+        dist = ed - st
+        step = dist / (n - 1)
+        idx = (val - st) // step
+        idx = int(idx)
+        idx = max(0, min(idx, n - 1))
+        return idx; 
         
-        bin = np.linspace(-self.env.WINDOW_HEIGHT//2, self.env.WINDOW_HEIGHT//2, 22)
-        l_y_diff_idx = np.clip(np.digitize(l_y_diff, bin) - 1, 0, 20)
-        r_y_diff_idx = np.clip(np.digitize(r_y_diff, bin) - 1, 0, 20)
-        return (ball_x_dir, ball_y_dir, l_y_diff_idx, r_y_diff_idx)
+    def get_state(self):
+        ball_dx = self.diff(self.env.ball_speed[0], -self.env.ball_maxspeed, self.env.ball_maxspeed, 5)
+        ball_dy = self.diff(self.env.ball_speed[1], -self.env.ball_maxspeed, self.env.ball_maxspeed, 5)
+        ball_x = self.diff(self.env.ball_x, 0, self.env.WINDOW_WIDTH, 10)
+        ball_y = self.diff(self.env.ball_y, 0, self.env.WINDOW_HEIGHT, 10)
+        l_y = self.diff(self.env.pad_y[0], 0, self.env.WINDOW_HEIGHT, 10)
+        r_y = self.diff(self.env.pad_y[1], 0, self.env.WINDOW_HEIGHT, 10)
+        return (ball_dx, ball_dy, ball_x, ball_y, l_y, r_y)
+    
     
     def act(self):
         state = self.get_state()
         action = np.argmax(self.Q[state])
-        self.env.update_speed(action-1, 1)
+        self.env.update_speed(action-1, self.side)
         
-    def load_q_table(self, path="q_table.pkl"):
+    def load_q_table(self, path="q_table-v4(mu).pkl"):
         """从本地文件加载 Q 表"""
         try:
             with open(path, "rb") as f:
@@ -61,7 +69,7 @@ class PongEnv:
     def __init__(self):
         # Initialize Pygame
         pygame.init()
-        pygame.display.set_caption("pong-v3")
+        pygame.display.set_caption("pong-v4(mu)")
         self.running = True
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -95,8 +103,10 @@ class PongEnv:
         self.pad_speed = [0, 0]
         self.accellerate = 0.8
         self.decellerate = 1.2
+        self.mu = 0.3
         
         #ball
+        self.ball_maxspeed = 20
         self.ball_radius = 10
         self.factor = 1.1
         
@@ -105,9 +115,21 @@ class PongEnv:
         self.right_score = 0
         
         #bots
+        self.switch = False
+        self.last_switch_episode = -1
+        self.bot_type = "bot_0"
         self.bot_0 = Bot_0(self)
-        self.bot = Bot_Q(self)
+        self.bot = Bot_Q(self, side = 1, alpha = 0, epsilon = 0)
         self.bot.load_q_table()
+        
+        #save and history
+        self.last_step_episode = -1
+        self.last_save_episode = -1
+        self.FP_avg_q_value_history = []
+        self.FP_avg_reward_history = []
+        self.FP_recent_win_rate_history = []
+        self.FP_epsilon_history = []
+        self.FP_episode_cnt_history = []
         
         #reset
         self.reset()

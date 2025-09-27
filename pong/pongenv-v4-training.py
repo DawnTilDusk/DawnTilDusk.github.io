@@ -1,13 +1,12 @@
-#this is the training code for the pong environment
-
 #add mu for paddle friction
-
+#this is a training version of pongenv-v4.py, which includes Q-learning agent and visualization tools.
 import pygame
 import numpy as np
 import sys
 import pickle
 import os
 from datetime import datetime
+import matplotlib
 
 class Bot_0:
     def __init__(self, env):
@@ -26,7 +25,7 @@ class Bot_0:
    
 #Q-learning agent 
 class Bot_Q:
-    def __init__(self, env, side = 1, alpha=0.2, gamma=0.9, epsilon=0.01, decaying = 0.9999):
+    def __init__(self, env, side = 1, alpha=0.05, gamma=0.9, epsilon=0.01, decaying = 0.99999995):
         self.env = env
         self.side = side
         
@@ -36,8 +35,8 @@ class Bot_Q:
         self.epsilon = epsilon
         self.decaying = decaying
         
-        self.Q = np.random.rand(5, 5, 10, 10, 10, 10, 3) 
         #state: ball_dx, ball_dy, ball_x, ball_y, l_y, r_y; action: down, stay, up
+        self.Q = np.random.rand(5, 5, 10, 10, 10, 10, 3) 
         
         self.last_state = None
         self.last_action = None
@@ -83,9 +82,9 @@ class Bot_Q:
             )
     
     def L2_reward(self, a, b):
-        return (100 - ((a-b)/100) ** 2) // 5
+        return (100 - ((a-b)/60) ** 2) // 50
         
-    def calculate_r(self):
+    def calculate_r_v1(self):
         state = self.get_state()
         action = self.last_action
         current_pad_y = self.env.pad_y[self.side]  # 当前 Bot 控制的挡板Y坐标
@@ -138,6 +137,79 @@ class Bot_Q:
         self.total_reward += reward
             
         return reward
+     
+    def calculate_r_v2(self):
+        state = self.get_state()
+        action = self.last_action
+        current_pad_y = self.env.pad_y[self.side]  
+        current_pad_center = current_pad_y + self.env.pad_height // 2  
+        reward = 0  # 初始化奖励为0，避免基础值过高
+
+        # -------------------------- 1. 优化过程奖励：从“高稳定”改为“低辅助” --------------------------
+        # 球向当前挡板飞来时，过程奖励仅为“辅助引导”，数值压缩到 0~3（原10~20）
+        if (self.side == 0 and self.env.ball_speed[0] < 0) or (self.side == 1 and self.env.ball_speed[0] > 0):
+        # 用“距离倒数”替代L2，距离越近奖励略高，但上限严格控制
+            distance = abs(current_pad_center - self.env.ball_y)
+            if distance < 50:  # 仅在距离较近时给奖励（避免无意义靠近）
+                reward += max(0, 3 - (distance / 20))  # 距离0→奖励3，距离50→奖励0.5
+            else:
+                reward -= 0.5  # 距离过远时轻微惩罚（引导主动靠近）
+        else: 
+        # 球远离时，引导挡板回中（奖励更低，仅0~1）
+            distance_to_mid = abs(current_pad_center - self.env.WINDOW_HEIGHT // 2)
+            reward += max(0, 1 - (distance_to_mid / 100))
+
+        # -------------------------- 2. 强化目标奖励：增加“接球质量”的差异化奖励 --------------------------
+        # 原“击中球+200”改为“基础200 + 速度加成”（鼓励接住高速球，提升泛化性）
+        if (self.side == 0 and self.env.l_collision()):
+            ball_speed = abs(self.env.ball_speed[0])  # 球的水平速度（速度越快，奖励越高）
+            reward += 200 + min(50, ball_speed * 2)  # 基础200，最高加50（总250）
+        elif (self.side == 1 and self.env.r_collision()):
+            ball_speed = abs(self.env.ball_speed[0])
+            reward += 200 + min(50, ball_speed * 2)
+
+        # -------------------------- 3. 新增“无效靠近”惩罚：针对“靠近但没接住” --------------------------
+        # 球向当前挡板飞来，且距离很近（本应接住），但最终没接住→惩罚（抵消过程奖励）
+        is_ball_coming = (self.side == 0 and self.env.ball_speed[0] < 0) or (self.side == 1 and self.env.ball_speed[0] > 0)
+        is_close_enough = abs(current_pad_center - self.env.ball_y) < 30  # 距离足够近，理应接住
+        is_missed = (self.side == 0 and self.env.ball_x < self.env.pad_width) or (self.side == 1 and self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width)
+        if is_ball_coming and is_close_enough and is_missed:
+            reward -= 100  # 惩罚强度介于“贴边（-10）”和“失分（-200）”之间
+
+        # -------------------------- 4. 保留并微调原有惩罚项 --------------------------
+        # 贴边惩罚从-10提升到-20（强化“避免贴边”的优先级）
+        if current_pad_y < 30:
+            reward -= 20
+        elif current_pad_y + self.env.pad_height > self.env.WINDOW_HEIGHT - 30:
+            reward -= 20
+
+        # 失分惩罚保留-200（核心惩罚，不可降低）
+        if self.side == 0 and self.env.ball_x < self.env.pad_width:
+            reward -= 200
+        elif self.side == 1 and self.env.ball_x > self.env.WINDOW_WIDTH - self.env.pad_width:
+            # 记录奖励（建议同时打印，观察奖励分布是否合理）
+            self.reward_history.append(reward)
+        if len(self.reward_history) > 500:
+            self.reward_history.pop(0)
+        self.total_reward += reward
+        
+        return reward
+    
+    def calculate_r_v3(self):
+        reward = self.calculate_r_v2()
+        # 左侧Bot_Q额外奖励“打右侧边角”（与右侧Agent的偏好区分）
+        if self.side == 0 and self.env.r_collision():
+            # 球反弹后Y坐标靠近顶部（<200）或底部（>400），额外加奖励
+            if self.env.ball_y < 200 or self.env.ball_y > 400:
+                reward += 50
+        
+        # 降低对“中线防守”的依赖（鼓励更激进的移动）
+        current_pad_center = self.env.pad_y[self.side] + self.env.pad_height // 2
+        distance_to_mid = abs(current_pad_center - self.env.WINDOW_HEIGHT // 2)
+        if distance_to_mid > 150:  # 允许更大范围偏离中线
+            reward += 10  # 反常识：奖励适度偏离中线，避免双方都守中线
+        
+        return reward
         
     def act(self):
         current_state = self.get_state()
@@ -147,7 +219,7 @@ class Bot_Q:
         #if self.side == 0: 
         #    print(f"check: mode = {action-1}, speed = {self.env.pad_speed[0]}")
         
-        reward = self.calculate_r()
+        reward = self.calculate_r_v2()
         self.update_Q(self.last_state, self.last_action, reward, current_state)
         
         self.last_state = current_state
@@ -164,8 +236,8 @@ class Bot_Q:
     
         # 可选：手动确认是否覆盖
         confirm = "y"
-        if os.path.exists(path) and not versioned:
-            confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+        #if os.path.exists(path) and not versioned:
+            #confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
 
         if confirm.lower() != "y":
             print("保存取消")
@@ -186,8 +258,8 @@ class Bot_Q:
     
         # 可选：手动确认是否覆盖
         confirm = "y"
-        if os.path.exists(path) and not versioned:
-            confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
+        #if os.path.exists(path) and not versioned:
+            #confirm = input(f"文件 {path} 已存在，是否覆盖？(y/n): ")
 
         if confirm.lower() != "y":
             print("保存取消")
@@ -272,10 +344,23 @@ class PongEnv:
         self.right_score = 0
         
         #bots
+        self.switch = True
+        self.last_switch_episode = -1
+        self.bot_type = "bot_0"
+        self.bot_0 = Bot_0(self)
         self.bot_left = Bot_Q(self, side = 0, alpha = 0.3, epsilon = 0.3)
         self.bot_left.load_q_table_left()
-        self.bot = Bot_Q(self, side = 1, alpha = 0.15, epsilon = 0.15)
+        self.bot = Bot_Q(self, side = 1, alpha = 0.2, epsilon = 0.1)
         self.bot.load_q_table()
+        
+        #save and history
+        self.last_step_episode = -1
+        self.last_save_episode = -1
+        self.FP_avg_q_value_history = []
+        self.FP_avg_reward_history = []
+        self.FP_recent_win_rate_history = []
+        self.FP_epsilon_history = []
+        self.FP_episode_cnt_history = []
         
         #reset
         self.reset()
@@ -294,7 +379,7 @@ class PongEnv:
                  self.pad_speed[side] = min(self.pad_speed[side] + self.decellerate, 0)
 #            print(f"Speed: {self.pad_speed[side]}")
         #if side == 0:
-             #print(f"左侧 Bot(side={side}) mode:{mode} speed:{self.pad_speed[side]}")
+        #     print(f"左侧 Bot(side={side}) mode:{mode} speed:{self.pad_speed[side]}")
         
     
     # Reset the game state
@@ -321,25 +406,36 @@ class PongEnv:
         if not self.running:
             return
         
-        #Paddle movement
-        if  self.pad_y[0] + self.pad_speed[0] < 0:
-            self.pad_y[0] = 0
-        elif self.pad_y[0] + self.pad_speed[0] > self.WINDOW_HEIGHT - self.pad_height:
-            self.pad_y[0] = self.WINDOW_HEIGHT - self.pad_height
-        else:
-            self.pad_y[0] += self.pad_speed[0]
+        #mixed agent for left paddle 
+        if self.bot.episode_cnt % 1000 == 0 and self.bot.episode_cnt != self.last_switch_episode and self.bot.episode_cnt > 0:
+            self.switch = not self.switch
+            self.last_switch_episode = self.bot.episode_cnt
+            print(f"陪练切换：此前为{self.bot_type}（回合数：{self.bot.episode_cnt}）")
             
+        if self.switch:
+            self.bot_left.act()
+            self.bot_type = "bot_Q"
+        else : 
+            self.bot_0.act(0)
+            self.bot_type = "bot_0"
+        #Q-learning agent for right paddle
+        self.bot.act()
+        
+        #Paddle movement
+        if self.switch: 
+            if  self.pad_y[0] + self.pad_speed[0] < 0:
+                self.pad_y[0] = 0
+            elif self.pad_y[0] + self.pad_speed[0] > self.WINDOW_HEIGHT - self.pad_height:
+                self.pad_y[0] = self.WINDOW_HEIGHT - self.pad_height
+            else:
+                self.pad_y[0] += self.pad_speed[0]
+           
         if  self.pad_y[1] + self.pad_speed[1] < 0:
             self.pad_y[1] = 0
         elif self.pad_y[1] + self.pad_speed[1] > self.WINDOW_HEIGHT - self.pad_height:
             self.pad_y[1] = self.WINDOW_HEIGHT - self.pad_height
         else:
             self.pad_y[1] += self.pad_speed[1]
-            
-        #Q-learning agent for left paddle
-        self.bot_left.act()
-        #Q-learning agent for right paddle
-        self.bot.act()
         
         #Ball movement            
         self.ball_x += int(self.ball_speed[0])
@@ -368,7 +464,7 @@ class PongEnv:
             if len(self.bot.recent_win_history) > 10:
                 self.bot.recent_win_history.pop(0)
                 
-            print(f"Left score: {self.left_score}, Right score: {self.right_score}")
+            #print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
             self.reset()
         
@@ -378,7 +474,7 @@ class PongEnv:
             if len(self.bot.recent_win_history) > self.bot.win_rate_max_episode:
                 self.bot.recent_win_history.pop(0)
                 
-            print(f"Left score: {self.left_score}, Right score: {self.right_score}")
+            #print(f"Left score: {self.left_score}, Right score: {self.right_score}")
             check_over = True
             self.reset()
         
@@ -404,7 +500,18 @@ class PongEnv:
         self.visualize()
         
         pygame.display.flip()
-        self.clock.tick(80) 
+        self.clock.tick(60)
+        
+    def record_history(self):
+        avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
+        avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
+        
+        # summarize for print
+        self.FP_avg_q_value_history.append(avg_q_value)
+        self.FP_avg_reward_history.append(avg_reward)
+        self.FP_recent_win_rate_history.append(self.bot.recent_win_rate)
+        self.FP_episode_cnt_history.append(self.bot.episode_cnt)
+        self.FP_epsilon_history.append(self.bot.epsilon)
         
     def visualize(self):
         # -------------------------- 新增：训练进度可视化 --------------------------
@@ -413,7 +520,13 @@ class PongEnv:
         # 2. 计算关键指标
         avg_reward = np.mean(self.bot.reward_history) if self.bot.reward_history else 0.0
         avg_q_value = np.mean(self.bot.Q)  # Q表平均价值（反映收敛度）
-        #recent_win_rate = np.mean(self.bot.win_rate_history) if self.bot.win_rate_history else 0.0
+        
+        # summarize for print
+        self.FP_avg_q_value_history.append(avg_q_value)
+        self.FP_avg_reward_history.append(avg_reward)
+        self.FP_recent_win_rate_history.append(self.bot.recent_win_rate)
+        self.FP_episode_cnt_history.append(self.bot.episode_cnt)
+        self.FP_epsilon_history.append(self.bot.epsilon)
         
         # 3. 绘制指标文本（左上角排列）
         text_color = self.WHITE
@@ -422,7 +535,8 @@ class PongEnv:
             f"近期胜率: {self.bot.recent_win_rate:.2f}",
             f"平均奖励: {avg_reward:.2f}",
             f"Q表均值: {avg_q_value:.4f}",
-            f"探索率: {self.bot.epsilon:.6f}"
+            f"探索率: {self.bot.epsilon:.6f}",
+            f"当前trainer_bot: {self.bot_type}"
         ]
         for i, text in enumerate(texts):
             text_surface = font_small.render(text, True, text_color)
@@ -479,7 +593,76 @@ class PongEnv:
             # 绘制折线
             pygame.draw.lines(self.screen, self.BLUE, False, points, 2)
         # -------------------------------------------------------------------------
+        
+    def save_training_history(self):
+        """保存训练历史指标到CSV文件（便于后续分析）"""
+        import pandas as pd
+        # 构造DataFrame（5个指标）
+        history_df = pd.DataFrame({
+            "episode_cnt": self.FP_episode_cnt_history,
+            "recent_win_rate": self.FP_recent_win_rate_history,
+            "avg_reward": self.FP_avg_reward_history,
+            "avg_q_value": self.FP_avg_q_value_history,
+            "epsilon": self.FP_epsilon_history
+        })
+        # 按时间戳命名文件（避免覆盖）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        save_path = f"training_history_v4(mu)_{timestamp}.csv"
+        # 保存CSV
+        history_df.to_csv(save_path, index=False, encoding="utf-8")
+        print(f"\n训练历史已保存到：{save_path}")
+        return history_df
 
+    def plot_training_history(self, history_df):
+        """用matplotlib绘制5个指标的总折线图"""
+        import matplotlib.pyplot as plt
+        # 设置中文字体（避免乱码）
+        plt.rcParams['font.sans-serif'] = ['SimHei', 'DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+        
+        # 创建2x2子图（4个指标）+ 共用x轴（回合数）
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+        fig.suptitle(f'Pong训练历史指标（总计{max(self.FP_episode_cnt_history)}回合）', fontsize=16, fontweight='bold')
+        
+        # 1. 近期胜率（ax1）
+        ax1.plot(history_df["episode_cnt"], history_df["recent_win_rate"], color='#2E8B57', linewidth=2)
+        ax1.set_title('近期胜率变化', fontsize=14)
+        ax1.set_xlabel('回合数')
+        ax1.set_ylabel('胜率（0~1）')
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(0, 1)  # 胜率范围固定0~1
+        
+        # 2. 平均奖励（ax2）
+        ax2.plot(history_df["episode_cnt"], history_df["avg_reward"], color='#4169E1', linewidth=2)
+        ax2.set_title('平均奖励变化', fontsize=14)
+        ax2.set_xlabel('回合数')
+        ax2.set_ylabel('平均奖励值')
+        ax2.grid(True, alpha=0.3)
+        
+        # 3. Q表均值（ax3）
+        ax3.plot(history_df["episode_cnt"], history_df["avg_q_value"], color='#DC143C', linewidth=2)
+        ax3.set_title('Q表平均价值变化', fontsize=14)
+        ax3.set_xlabel('回合数')
+        ax3.set_ylabel('Q表均值')
+        ax3.grid(True, alpha=0.3)
+        
+        # 4. 探索率（ax4）
+        ax4.plot(history_df["episode_cnt"], history_df["epsilon"], color='#FF8C00', linewidth=2)
+        ax4.set_title('探索率（epsilon）变化', fontsize=14)
+        ax4.set_xlabel('回合数')
+        ax4.set_ylabel('探索率（0~1）')
+        ax4.grid(True, alpha=0.3)
+        ax4.set_yscale('log')  # 探索率衰减快，用对数坐标更清晰
+        
+        # 调整子图间距
+        plt.tight_layout()
+        # 保存图片（按时间戳命名）
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        plot_save_path = f"training_plot_v4(mu)_{timestamp}.png"
+        plt.savefig(plot_save_path, dpi=300, bbox_inches='tight')
+        print(f"训练图表已保存到：{plot_save_path}")
+        # 显示图表
+        plt.show()
 
 env = PongEnv()
 manned = False
@@ -490,6 +673,8 @@ while env.running:
             env.running = False
             env.bot.save_q_table("q_table-v4(mu).pkl")
             env.bot.save_q_table_left("q_table-v4(mu)-left.pkl")
+            history_df = env.save_training_history()
+            env.plot_training_history(history_df)
             sys.exit()
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F2:
@@ -508,16 +693,20 @@ while env.running:
             env.update_speed(0, 0)
     
     env.step()
-    if env.bot.episode_cnt % 50 == 0 and env.bot.episode_cnt > 0:
+    #env.render()
+    
+    if env.bot.episode_cnt % 50000 == 0 and env.bot.episode_cnt > 0 and env.bot.episode_cnt != env.last_save_episode:
         env.bot.save_q_table(versioned=True)  # 按时间戳保存，不覆盖
         env.bot.save_q_table_left(versioned=True)
-    env.render()
-    
-    
-    #for training
-    #env.screen.fill(env.BLACK)
-    #env.visualize()
-    #pygame.display.flip()
-    #env.clock.tick(80)
-          
+        history_df = env.save_training_history()
+        env.plot_training_history(history_df)
+        env.last_save_episode = env.bot.episode_cnt
+        
+    if env.bot.episode_cnt % 100 == 0 and env.bot.episode_cnt != 0 and env.bot.episode_cnt != env.last_step_episode:
+        env.record_history()
+        env.last_step_episode = env.bot.episode_cnt
+        avg_reward = np.mean(env.bot.reward_history) if env.bot.reward_history else 0.0
+        avg_q_value = np.mean(env.bot.Q)  # Q表平均价值（反映收敛度）
+        print(f"回合数：{env.bot.episode_cnt} | 近期胜率：{env.bot.recent_win_rate:.2f} | 平均奖励：{avg_reward:.2f} | 探索率：{env.bot.epsilon:.6f} | Q表均值：{avg_q_value:.4f}")
+        
 pygame.quit()
