@@ -1,0 +1,356 @@
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                background-color: #f8f9fa;
+                min-height:100vh;
+                display: flex;
+                flex-direction: column;
+                
+                /* 背景图片样式 */
+                margin: 0;
+                padding: 0;
+                background-image: url("main_background.png");/* 设置背景图片 */
+                background-repeat: no-repeat;/* 背景图片不重复 */
+                background-size: cover;/* 背景图片覆盖整个屏幕 */
+                background-attachment: fixed;/* 背景图片固定，内容滚动时背景不动 */
+                background-position: center;/* 背景图片居中显示 */
+                min-height: 100vh;/* 确保内容在背景上方可见 */
+            }
+
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                width: 100%;
+            }
+
+            .container-inner {
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            header { 
+                background: linear-gradient(135deg, rgba(45, 109, 229, 0.603), rgba(186, 211, 234, 0.603));
+                color: white;
+                padding: 30px 20px;
+                margin-bottom: 40px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                border-radius: 8px;
+                transition: all 0.5s ease;
+            }
+
+            header:hover {
+                opacity: 1;
+                transform: translateY(-5px);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+            }
+
+            nav {
+                display: flex;          /* 使用弹性布局 */
+                justify-content: space-between;  /* 子元素左右两端对齐 */
+                align-items: center;    /* 子元素垂直居中 */
+                flex-wrap: wrap;        /* 屏幕变小时自动换行 */
+            }
+
+            .logo {
+                font-size: 2rem;
+                font-weight: bold;
+                color: white;
+                text-decoration: none;
+                transition: color 0.3s; /*  logo颜色过渡 */
+            }
+
+            .logo:hover {
+                color: #efe8cb;
+            }
+
+            .nav-links {
+                display: flex;  /* 控制整个列表的布局方式（横向排列） */
+                list-style: none;   /* 去掉列表默认的圆点标记 */
+                gap: 20px;  /* 控制列表项之间的间距 */
+            }
+
+            .nav-links a {
+                color: white;   /* 链接文字颜色 */
+                text-decoration: none;  /* 去掉链接默认的下划线 */
+                font-size: 1.2rem;  /* 链接文字大小 */
+                padding: 8px 16px;  /* 链接文字与边框的间距 */
+                border-radius: 4px;  /* 链接边框圆角 */
+                transition: all 0.3s;   /* 所有属性变化都有过渡 */
+                position: relative; /* 关键：让伪元素能相对于链接定位 */
+            }
+
+            .nav-links a:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-links a::after {/* 创建下划线（初始状态） */
+                content: " ";    /* 必须设置，伪元素才能显示 */
+                position: absolute;   /* 绝对定位，相对于父元素（a标签） */
+                width: 0; /* 初始宽度为0，下划线不可见 */
+                height: 2px; /* 下划线的高度（粗细） */
+                bottom: -2px; /* 定位在链接底部边缘 */
+                left: 0;/* 定位在链接左侧起点 */
+                background-color: white; /* 下划线颜色（白色，与导航栏搭配） */
+                transition: width 0.3s;/* 宽度变化时的过渡动画，持续0.3秒 */
+            }
+
+            .nav-links a:hover::after {
+                width: 100%;
+            }
+
+            main {
+                flex: 1;
+                margin-bottom: 40px;
+            } 
+
+            .init-hidden {
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s ease; /* 平滑展开/收回 */
+            }
+
+            .content-section {
+                background: linear-gradient(135deg, rgba(45, 109, 229, 0.603), rgba(186, 211, 234, 0.603));
+                border-radius: 8px;
+                padding: 30px;
+                margin-bottom: 2px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                transition: all 0.3s ease-in-out;
+            }
+
+            .content-section:hover {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            }
+
+            .section-title-btn {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border: none;
+                font-size: 1.6rem;
+                font-weight: bold;
+                background: transparent;
+                color: white;
+                padding: 8px 16px;
+                margin-bottom: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .section-title-btn.expanded i {
+                transform: rotate(180deg); /* 展开时箭头朝上 */
+            }
+
+            .progress-content.show {
+                max-height: 1000px; /* 足够容纳内容 */
+                padding: 10px 0;
+            }
+
+            .add-progress-container {
+                margin-top: 10px;
+                margin-bottom: 10px;
+                display: flex;
+                gap: 10px;
+                align-items: center;
+            }
+
+            /* 1. 基础样式：统一输入框外观 */
+            .fancy-input {
+                width: 300px;          /* 宽度 */
+                padding: 8px 16px;    /* 内边距（上下8px，左右16px） */
+                margin: 8px 0;         /* 外边距（上下8px，左右0） */
+                border: 2px solid #ddd; /*边框（灰色） */
+                border-radius: 8px;    /* 圆角（柔和效果） */
+                font-size: 16px;       /* 字体大小 */
+                box-sizing: border-box;/* 确保padding不会撑大宽度（关键！） */
+                transition: all 0.3s;  /* 所有样式变化添加过渡（平滑动画） */
+            }
+
+            /* 2. 鼠标悬浮状态：边框变色 */
+            .fancy-input:hover {
+                border-color: #66b1ff; /* 浅蓝色边框 */
+            }
+
+            /* 3. 输入框聚焦状态：高亮边框+阴影 */
+            .fancy-input:focus {
+                outline: none;         /* 清除默认聚焦外框（浏览器自带的蓝色边框） */
+                border-color: #2563eb; /* 深蓝色边框 */
+                box-shadow: 0 0 4px 4px rgba(37, 99, 235, 0.1); /* 淡蓝色阴影（增强层次感） */
+            }
+
+            /* 4. 禁用状态：灰色调+不可点击 */
+            .fancy-input:disabled {
+                background-color: #f9fafb; /* 浅灰色背景 */
+                color: #9ca3af;            /* 灰色文字 */
+                border-color: #e5e7eb;     /* 浅灰色边框 */
+                cursor: not-allowed;       /* 鼠标变为“禁止”图标 */
+            }
+
+            .add-progress-btn {
+                padding: 8px 16px;
+                background-color: #2196f3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.1s;
+            }
+
+            .add-progress-btn:hover {
+                background-color: #1e88e5;
+                box-shadow: 0 2px 3px 2px rgba(33, 150, 243, 0.2);
+                transform: translateY(-1px);
+            }
+
+            .progress-section {
+                margin-top: 20px;
+            }
+
+            .progress-container {
+                position: relative;
+                background-color: #e0e0e0;
+                border-radius: 20px;    
+                height: 20px;
+                width: 100%;
+                margin: 5px 0 15px 0;
+                overflow: hidden;
+            }
+
+            .progress-bar {
+                background: linear-gradient(90deg, #4caf50, #8bc34a);
+                height: 100%;
+                width: 0%;
+                border-radius: 20px;
+                transition: width 0.3s ease-in-out;
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                
+            }
+            
+            .progress-text{
+                color: white;
+                font-weight: bold;
+                font-size: 0.9rem;
+                padding: 0 10px;
+                white-space: nowrap;
+            }
+
+            .progress-text.fixed-center {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .progress-text.fixed-center.col0 {
+                color: grey
+            }
+
+            .progress-text.fixed-center.col1 {
+                color: red
+            }
+
+            .progress-controls {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 10px;
+                align-items: center;
+            }
+
+            .name {
+                font-size: 1.1rem;
+                font-weight: bold;
+            }
+
+            .btn {
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 1rem;
+                transition: all 0.5s;
+            }
+
+            .add-btn {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                color: orange;
+            }
+
+            .add-btn:hover {
+                background-color: orange;
+                color: white;
+            }
+
+            .sub-btn {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                color: green;
+            }
+
+            .sub-btn:hover {
+                background-color: green;
+                color: white;
+            }
+
+            .reset-btn {
+                width: 40px;
+                height: 25px;
+                border-radius: 4px;
+                background-color: #4caf50;
+                color: white;
+                font-size: 0.8rem;
+            }
+
+            .remove-btn {
+                width: 40px;
+                height: 25px;
+                border-radius: 4px;
+                background-color: red;
+                color: white;
+                font-size: 0.8rem;
+            }
+
+            .btn-hover:hover {
+                box-shadow: 0 1px 1px 1px rgba(0, 0, 0, 0.2);
+                transform: translateY(-1px);
+            }
+
+            footer {
+                height: 50px;
+                background-color: #2c3e50;
+                color: white;
+                text-align: center;
+                padding: 20px;
+                margin-top: auto;
+                border-radius: 8px 8px 0 0;
+            } 
+
+            @media (max-width: 768px) {
+                nav {
+                    flex-direction: column;
+                    gap: 20px;
+                }
+            
+                .nav-links {
+                    flex-direction: column;
+                    width: 100%;
+                    text-align: center;
+                }
+            }
