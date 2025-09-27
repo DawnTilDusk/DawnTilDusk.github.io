@@ -82,7 +82,8 @@
     body.show-game { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; }
     /* 进入试玩后，移除游戏界面上方的无关文字（试玩说明与顶部横幅） */
     body.show-game .ui { display: none; }
-    body.show-game #topBanner { display: none !important; }
+    /* 进入试玩后，显示顶部滚动横幅 */
+    body.show-game #topBanner { display: block; }
     #betaTitle { height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
     #betaTitle h1 { font-size: 28px; color: #eee; margin: 0; letter-spacing: 0.5px; }
   </style>
@@ -455,9 +456,11 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
         player.body.setAccelerationY(0);
       });
 
-      // 按出 Free 触发彩蛋 & 作弊码 FREEDOM 键入检测
+      // 按出 Free/Go 触发彩蛋 & 作弊码 FREEDOM 键入检测
       const freeSeq = ['F','R','E','E'];
       let freeIdx = 0;
+      const goSeq = ['G','O'];
+      let goIdx = 0;
       const cheatSeq = ['F','R','E','E','D','O','M'];
       let cheatIdx = 0;
       this.input.keyboard.on('keydown', (e) => {
@@ -471,6 +474,16 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
           }
         } else {
           freeIdx = 0;
+        }
+        // GO 彩蛋序列检测（与 FREE 独立）
+        if (k === goSeq[goIdx]) {
+          goIdx++;
+          if (goIdx === goSeq.length) {
+            if (STATE.phase === 'play') enterFreeEaster(this);
+            goIdx = 0;
+          }
+        } else {
+          goIdx = 0;
         }
         if (k === cheatSeq[cheatIdx]) {
           cheatIdx++;
@@ -1492,24 +1505,25 @@ function showFail(scene) {
     // 文案入口：彩蛋/特殊流程
     // 用法：可用 showOverlay 或 showEndingDialogue 组织彩蛋文案与互动；当前为点击任意位置重开示例。
     function enterFreeEaster(scene) {
-      // 按出 FREE 触发的彩蛋：以对话式结局呈现，关键词“体验”重开
+      // FREE/GO 触发的第二彩蛋结局：逃课通道（黄色主题），关键词“现实”重开
       STATE.phase = 'easter';
       // 结局触发前清屏，避免干扰
       clearForEaster(scene);
       showEndingDialogue(
         scene,
-        '彩蛋：你找到了通往自由的道路',
+        '彩蛋：逃课通道',
         [
-          '我明明有一个不羁的灵魂，为什么要被困在这作业之中？',
-          '很高兴看到你，在亦步亦趋的社会时钟中',
-          '仍葆有一份突破规则的想象力',
-          '你发现生命的意义在于体验',
-          '周遭的环境已经影响不到你的心境',
-          '月亮和六便士',
-          '我们都要！'
+          '或是你灵魂的舞姿，',
+          '或是你不羁的灵魂，',
+          '你发现了藏得最深的逃课通道，',
+          '这里是内卷时代的后室，',
+          '但是最后你仍然发现......',
+          '所谓的逃课通道，',
+          '不过是一场幻觉罢了。',
+          '“逃避有用吗？”'
         ],
-        '#7ef0ff',
-        ['体验']
+        '#ffd84d',
+        ['现实']
       );
     }
 
