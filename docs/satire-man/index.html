@@ -4,45 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>正在跳转到 Satire 项目…</title>
-    <!-- 延迟重定向（Meta Refresh 作为兜底，2 秒） -->
-    <meta http-equiv="refresh" content="2; url=../satire-runner/" />
+    <!-- 立即重定向（Meta Refresh 作为兜底） -->
+    <meta http-equiv="refresh" content="0; url=../satire-runner/" />
     <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "微软雅黑", sans-serif; margin: 0; display:flex; flex-direction:column; min-height: 100vh; background: #0b0c10; color: #e6e6e6; }
-      /* 滚动横幅（跑马灯） */
-      .ticker { height: 36px; display:flex; align-items:center; overflow:hidden; background:#0b0c10; border-bottom:1px solid #1f2833; }
-      .ticker__track { display:flex; gap:40px; white-space:nowrap; will-change:transform; animation: ticker-scroll 18s linear infinite; }
-      .ticker__track .phrase { color:#66fcf1; font-size:14px; }
-      @keyframes ticker-scroll { from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
-      .card { text-align: center; padding: 24px 28px; border: 1px solid #1f2833; border-radius: 12px; background: #111317; box-shadow: 0 10px 25px rgba(0,0,0,.25); width:min(640px, 92%); margin: 24px auto; }
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "微软雅黑", sans-serif; margin: 0; display: grid; place-items: center; min-height: 100vh; background: #0b0c10; color: #e6e6e6; }
+      .card { text-align: center; padding: 24px 28px; border: 1px solid #1f2833; border-radius: 12px; background: #111317; box-shadow: 0 10px 25px rgba(0,0,0,.25); }
       .card h1 { font-size: 18px; margin: 0 0 8px; }
       .card p { margin: 0 0 16px; color: #b7c0c8; font-size: 14px; }
       .card a { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #66fcf1; color: #0b0c10; text-decoration: none; font-weight: 600; }
       .card a:hover { background: #45e9df; }
     </style>
     <script>
-      // 更可靠的重定向（优先，延迟 2 秒以便展示横幅）
-      setTimeout(function(){ window.location.replace('../satire-runner/'); }, 2000);
-  </script>
+      // 更可靠的重定向（优先）
+      window.location.replace('../satire-runner/');
+    </script>
   </head>
   <body>
-    <!-- 滚动横幅 -->
-    <div class="ticker" aria-label="滚动横幅">
-      <div class="ticker__track">
-        <span class="phrase">冲入好大学你们就成功了！</span>
-        <span class="phrase">996福报：努力就是幸福！</span>
-        <span class="phrase">学习出一个光明的未来！</span>
-        <span class="phrase">按时上岸，幸福一生！</span>
-        <span class="phrase">内卷是成长的阶梯！</span>
-        <span class="phrase">加班加点成就梦想！</span>
-        <!-- 为连续滚动再重复一轮，避免空档 -->
-        <span class="phrase">冲入好大学你们就成功了！</span>
-        <span class="phrase">996福报：努力就是幸福！</span>
-        <span class="phrase">学习出一个光明的未来！</span>
-        <span class="phrase">按时上岸，幸福一生！</span>
-        <span class="phrase">内卷是成长的阶梯！</span>
-        <span class="phrase">加班加点成就梦想！</span>
-      </div>
-    </div>
     <div class="card">
       <h1>正在为你跳转到 Satire 项目</h1>
       <p>如果没有自动跳转，请点击下面的按钮：</p>
