@@ -10,6 +10,9 @@
     .ui { max-width: 960px; margin: 12px auto; padding: 0 12px; }
     .btn { display: inline-block; padding: 8px 12px; border-radius: 6px; background: #1f2937; color: #fff; text-decoration: none; margin-right: 8px; cursor: pointer; }
     .btn:hover { background: #374151; }
+    /* 按钮禁用态：变灰，但不显示禁止图标，不响应 hover 变色 */
+    .btn.disabled, .btn:disabled { background: #2d3748; opacity: 0.65; cursor: default; }
+    .btn.disabled:hover, .btn:disabled:hover { background: #2d3748; }
     .legend { font-size: 14px; color: #bbb; margin-top: 8px; }
     /* 顶部横幅（CSS 美化版本） */
 #topBanner { position: absolute; left: 0; top: 0; width: 100%; height: 64px; z-index: 12; pointer-events: none;
@@ -102,6 +105,8 @@
     (function(){
       const btn = document.getElementById('enterBtn');
       const betaTitle = document.getElementById('betaTitle');
+      // 页面会话内防连点：同一页面只允许触发一次；刷新后可再次触发
+      let clickedOnce = false;
       // 在按钮下方动态插入计数文案容器
       const counterEl = document.createElement('div');
       counterEl.id = 'betaCounter';
@@ -155,6 +160,12 @@
       }
 
       if (btn) btn.addEventListener('click', async () => {
+        // 同一页面会话内防连点：已点击过则直接返回
+        if (clickedOnce) { return; }
+        clickedOnce = true;
+        // 立即禁用，避免快速连点重复触发
+        btn.classList.add('disabled');
+        btn.disabled = true;
         // 优先尝试全站计数（busuanzi），失败再回退到本地计数
         let cnt;
         try {
