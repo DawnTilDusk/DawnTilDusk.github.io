@@ -86,6 +86,11 @@
     body.show-game #topBanner { display: block; }
     #betaTitle { height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
     #betaTitle h1 { font-size: 28px; color: #eee; margin: 0; letter-spacing: 0.5px; }
+    /* 进入时的渐变过渡遮罩 */
+    #enterOverlay { position: fixed; inset: 0; background: #121212; z-index: 999; opacity: 0; pointer-events: none;
+      transition: opacity 600ms ease; }
+    /* 强调计数数字：红色、加粗 */
+    .count-highlight { color: #e53935; font-weight: 700; }
   </style>
   <!-- Phaser CDN -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.js"></script>
@@ -93,10 +98,144 @@
 <body>
   <div id="betaTitle"><h1>绩点狂奔：逃离优绩主义 - Beta</h1><button id="enterBtn" class="btn">进入试玩</button></div>
   <script>
-    // Beta -> 进入试玩：显示完整游戏界面
+    // Beta -> 进入试玩：点击后计数 + 展示文案，1.5s 后进入；切换使用遮罩渐变更丝滑
     (function(){
       const btn = document.getElementById('enterBtn');
-      if (btn) btn.addEventListener('click', () => { document.body.classList.add('show-game'); });
+      const betaTitle = document.getElementById('betaTitle');
+      // 在按钮下方动态插入计数文案容器
+      const counterEl = document.createElement('div');
+      counterEl.id = 'betaCounter';
+      counterEl.style.display = 'none';
+      counterEl.style.marginTop = '8px';
+      counterEl.style.fontSize = '16px';
+      counterEl.style.color = '#eee';
+      counterEl.style.textAlign = 'center';
+      if (betaTitle) betaTitle.appendChild(counterEl);
+
+      function getCount(){
+        try { return parseInt(localStorage.getItem('sr_test_cnt') || '0', 10) || 0; }
+        catch(_) { return (window.__sr_test_cnt || 0); }
+      }
+      function setCount(n){
+        try { localStorage.setItem('sr_test_cnt', String(n)); }
+        catch(_) { window.__sr_test_cnt = n; }
+      }
+
+      // 使用不蒜子（busuanzi）实现“全站可访问”的全局计数（国内可用，无需翻墙）
+      // 方案：点击时加载一个隐藏 iframe 指向 pv-ping.html（同域路径），该页面包含 busuanzi 脚本，
+      //       每次加载都会为该路径的 page PV +1，并将最新 PV 值通过 postMessage 发回父页面。
+      function getGlobalCount(timeoutMs = 1800){
+        return new Promise((resolve, reject) => {
+          const iframe = document.createElement('iframe');
+          iframe.src = 'pv-ping.html?ts=' + Date.now(); // 防缓存
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.style.border = '0';
+          iframe.style.position = 'absolute';
+          iframe.style.left = '-9999px';
+          let timer;
+          const onMsg = (e) => {
+            // 同源即可；为安全起见，这里不校验 origin（也可按需校验）
+            if (e && e.data && e.data.type === 'sr-global-count'){
+              window.removeEventListener('message', onMsg);
+              clearTimeout(timer);
+              // 清理 iframe（稍后移除，避免同步移除导致某些浏览器提前中断加载）
+              setTimeout(() => { try { iframe.remove(); } catch(_){} }, 50);
+              resolve(Number(e.data.value) || 0);
+            }
+          };
+          window.addEventListener('message', onMsg);
+          timer = setTimeout(() => {
+            window.removeEventListener('message', onMsg);
+            try { iframe.remove(); } catch(_){}
+            reject(new Error('busuanzi timeout'));
+          }, timeoutMs);
+          document.body.appendChild(iframe);
+        });
+      }
+
+      if (btn) btn.addEventListener('click', async () => {
+        // 优先尝试全站计数（busuanzi），失败再回退到本地计数
+        let cnt;
+        try {
+          cnt = await getGlobalCount(1800); // 无需翻墙的国内可用方案
+        } catch(_) {
+          cnt = getCount() + 1; // 回退：本地计数
+          setCount(cnt);
+        }
+        // 打字机逐字显示（每字 0.1s）
+        const line1 = `你是第${cnt}个测试游戏的玩家`;
+        const line2 = `欢迎来到内卷至上的世界！`;
+        counterEl.innerHTML = `<span id="betaL1"></span><br><br><span id="betaL2"></span>`;
+        const l1 = document.getElementById('betaL1');
+        const l2 = document.getElementById('betaL2');
+        counterEl.style.display = 'block';
+
+        function typeLine(text, node, interval = 100) {
+          return new Promise(resolve => {
+            let i = 0;
+            const timer = setInterval(() => {
+              node.textContent += text.charAt(i);
+              i++;
+              if (i >= text.length) { clearInterval(timer); resolve(); }
+            }, interval);
+          });
+        }
+
+        // 带数字高亮的打字机（prefix + count + suffix）
+        function typeLineCount(prefix, countStr, suffix, container, interval = 100) {
+          container.textContent = '';
+          const prefixNode = document.createTextNode('');
+          const countSpan = document.createElement('span');
+          countSpan.className = 'count-highlight';
+          countSpan.textContent = '';
+          const suffixNode = document.createTextNode('');
+          container.appendChild(prefixNode);
+          container.appendChild(countSpan);
+          container.appendChild(suffixNode);
+          return new Promise(resolve => {
+            let i = 0;
+            const total = prefix.length + countStr.length + suffix.length;
+            const tick = () => {
+              if (i < total) {
+                if (i < prefix.length) {
+                  prefixNode.textContent = prefix.slice(0, i + 1);
+                } else if (i < prefix.length + countStr.length) {
+                  const j = i - prefix.length;
+                  countSpan.textContent = countStr.slice(0, j + 1);
+                } else {
+                  const k = i - prefix.length - countStr.length;
+                  suffixNode.textContent = suffix.slice(0, k + 1);
+                }
+                i++;
+                setTimeout(tick, interval);
+              } else {
+                resolve();
+              }
+            };
+            tick();
+          });
+        }
+
+        // 创建遮罩用于切换时的渐变过渡
+        const overlay = document.createElement('div');
+        overlay.id = 'enterOverlay';
+        document.body.appendChild(overlay);
+        // 轻微延时以触发 CSS 过渡到不透明（淡入遮罩）
+        setTimeout(() => { overlay.style.opacity = '1'; }, 50);
+
+        // 逐字显示两行后再进入游戏，再淡出遮罩
+        typeLineCount('你是第', String(cnt), '个测试游戏的玩家', l1, 100)
+          .then(() => typeLine(line2, l2, 100))
+          .then(() => {
+            // 打完所有字后再额外停顿 1s，再进入游戏并淡出遮罩
+            setTimeout(() => {
+              document.body.classList.add('show-game');
+              overlay.style.opacity = '0';
+              overlay.addEventListener('transitionend', () => { overlay.remove(); }, { once: true });
+            }, 1000);
+          });
+      });
     })();
   </script>
   <div class="ui">
