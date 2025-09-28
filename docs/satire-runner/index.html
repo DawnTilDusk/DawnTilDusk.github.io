@@ -393,6 +393,7 @@
   const EASTER_BOUNDARY_WINDOW_MS = 10000; // 10s 窗口
   const EASTER_BOUNDARY_HITS_REQUIRED = 8; // 10s 内同一侧边界撞击次数阈值
   const EASTER_LONG_PRESS_MS = 8000; // 在边界长按撞击持续 8s
+  const EASTER_BOUNDARY_TOLERANCE_PX = 5; // 边界接触容差：允许在边界内 5px 以内判定为“接触”
 
     // 游戏配置
     const WIDTH = 960;
@@ -847,8 +848,9 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
         const wb = scene.physics.world.bounds;
         const body = player.body;
         if (!body || !wb) return;
-        const atLeft = body.left <= wb.left + 1;
-        const atRight = body.right >= wb.right - 1;
+        // 使用 Arcade 的 blocked/touching 标记更稳妥，并放宽容差
+        const atLeft = body.blocked?.left || body.touching?.left || (body.left <= wb.left + EASTER_BOUNDARY_TOLERANCE_PX);
+        const atRight = body.blocked?.right || body.touching?.right || (body.right >= wb.right - EASTER_BOUNDARY_TOLERANCE_PX);
         const pressingLeft = (cursors.left?.isDown) || (wasd?.left?.isDown);
         const pressingRight = (cursors.right?.isDown) || (wasd?.right?.isDown);
         const now = scene.time.now || performance.now();
@@ -869,7 +871,11 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
             // 仅保留 10s 窗口内的数据
             while (arr.length && now - arr[0] > EASTER_BOUNDARY_WINDOW_MS) arr.shift();
             if (arr.length >= EASTER_BOUNDARY_HITS_REQUIRED) {
-              enterEaster(scene);
+              // 左右侧呈现不同彩蛋结局：
+              // - 左侧：彩蛋「你找到了通往自由的道路」（enterFreeEaster）
+              // - 右侧：彩蛋「逃课通道」（enterEaster）
+              if (contactSide === 'left') enterFreeEaster(scene);
+              else enterEaster(scene);
               // 重置，避免重复触发
               STATE.easter.leftBumps = []; STATE.easter.rightBumps = [];
               STATE.easter.contactSide = null; STATE.easter.contactStartAt = 0;
@@ -878,7 +884,8 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
           } else {
             // 持续接触：长按 8s
             if (STATE.easter.contactStartAt && now - STATE.easter.contactStartAt >= EASTER_LONG_PRESS_MS) {
-              enterEaster(scene);
+              if (contactSide === 'left') enterFreeEaster(scene);
+              else enterEaster(scene);
               STATE.easter.leftBumps = []; STATE.easter.rightBumps = [];
               STATE.easter.contactSide = null; STATE.easter.contactStartAt = 0;
               return;
@@ -1034,9 +1041,23 @@ let safePathGraphics, flashTimer, gpaFlashTimer, gpaEmphasisTween;
      */
     function changeGPA(delta) {
       if (STATE.cheatActive) return; // 作弊锁定
+      const prev = STATE.gpa;
       STATE.gpa = Math.max(0.0, Math.min(5.0, (STATE.gpa + delta)));
       // GPA 文本颜色与强调（加分绿、扣分红，与状态栏提示颜色一致）
       emphasizeGpaText(delta);
+      // 阈值即时判定：避免依赖下一帧 update 才出结局，提升“碰撞后立即出现失败/成功界面”的直觉体验
+      try {
+        const scene = (game && game.scene && game.scene.getScenes) ? game.scene.getScenes(true)[0] : null;
+        if (scene && STATE.phase === 'play') {
+          if (prev <= 4.0 && STATE.gpa > 4.0) {
+            // 刚跨过成功阈值
+            showSuccess(scene);
+          } else if (prev >= 1.0 && STATE.gpa < 1.0) {
+            // 刚跌破失败阈值
+            showFail(scene);
+          }
+        }
+      } catch (e) { /* 忽略判定失败，避免影响主流程 */ }
     }
 
     /**
@@ -1661,35 +1682,38 @@ function showFail(scene) {
       clearForEaster(scene);
       showEndingDialogue(
         scene,
-        '彩蛋：逃课通道',
+        '彩蛋：你找到了通往自由的道路',
         [
-          '或是你灵魂的舞姿，',
-          '或是你不羁的灵魂，',
-          '你发现了藏得最深的逃课通道，',
-          '这里是内卷时代的后室，',
-          '但是最后你仍然发现......',
-          '所谓的逃课通道，',
-          '不过是一场幻觉罢了。',
-          '“逃避有用吗？”'
+          '我明明有一个不羁的灵魂，为什么要被困在这作业之中？',
+          '很高兴看到你，在亦步亦趋的社会时钟中',
+          '仍葆有一份突破规则的想象力',
+          '你发现生命的意义在于体验',
+          '周遭的环境已经影响不到你的心境',
+          '月亮和六便士',
+          '我们都要！',
         ],
         '#ffd84d',
-        ['现实']
+        ['体验']
       );
     }
 
     function enterEaster(scene) {
-      // 隐藏彩蛋：不使用全屏遮盖，仅顶部提示；点击任意位置重开
+      // 隐藏彩蛋：边界贴边/撞击达标后进入“逃课通道”结局（对话式全屏页面）
+      // 为了与其他结局保持一致，这里使用 showEndingDialogue 呈现，而不再使用顶部提示。
       STATE.phase = 'easter';
-      // 彩蛋触发时清屏
+      // 彩蛋触发时清屏，避免场景元素干扰结局页面
       clearForEaster(scene);
-      const toastBg = scene.add.rectangle(WIDTH/2, 60, 520, 50, 0x000000, 0.55).setStrokeStyle(1, 0x444444);
-      scene.add.text(
-        WIDTH/2,
-        60,
-        '隐藏彩蛋：逃课通道 ｜ 点击任意位置重开',
-        { fontSize: '18px', color: '#e0ff7e' }
-      ).setOrigin(0.5);
-      scene.input.once('pointerdown', () => resetGame(scene));
+      showEndingDialogue(
+        scene,
+        '彩蛋：逃课通道',
+        [
+          '你在边界之外划出了自己的路。',
+          '在规则的夹缝里摸索自由，是一种勇气。',
+          '不是每次撞墙都徒劳——有时门就在那里。'
+        ],
+        '#ffd84d',
+        ['出门']
+      );
     }
 
     // 清理当前场景中已显示的障碍（不重置其他状态）
