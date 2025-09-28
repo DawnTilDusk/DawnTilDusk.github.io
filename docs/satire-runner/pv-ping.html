@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PV Ping</title>
+  <!-- 不蒜子：国内可访问的站点/页面统计脚本 -->
+  <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  <style>
+    body { margin: 0; }
+    /* 隐藏页面内容，但保留统计逻辑 */
+    #busuanzi_value_page_pv { display: none; }
+  </style>
+</head>
+<body>
+  <!-- 页面 PV 计数容器（busuanzi 会填充数值） -->
+  <span id="busuanzi_value_page_pv"></span>
+  <script>
+    (function(){
+      // 轮询读取 busuanzi 写入的 PV 值，并向父页面发送
+      var tries = 0;
+      var maxTries = 60; // ~6s 上限
+      function postCountIfReady(){
+        var el = document.getElementById('busuanzi_value_page_pv');
+        if (el){
+          var val = parseInt(el.innerText || el.textContent || '0', 10);
+          if (!isNaN(val) && val > 0){
+            try { parent.postMessage({ type: 'sr-global-count', value: val }, '*'); } catch(_){}
+            return true;
+          }
+        }
+        return false;
+      }
+      var timer = setInterval(function(){
+        tries++;
+        if (postCountIfReady() || tries >= maxTries){
+          clearInterval(timer);
+        }
+      }, 100);
+    })();
+  </script>
+</body>
+</html>
