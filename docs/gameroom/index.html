@@ -155,6 +155,9 @@
         let activeDragBlock = null;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
+        let dragStartX = 0; // 记录拖拽起始点，用于区分点击
+        let dragStartY = 0;
+        let hasMoved = false; // 标记是否发生过有效移动
         
         // 用于计算投掷速度
         let lastMouseX = 0;
@@ -205,6 +208,12 @@
                     isDragging: false // 新增状态：右键拖拽
                 });
 
+                // 禁用原生拖拽，防止拖出网址
+                el.setAttribute('draggable', 'false');
+                el.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                });
+
                 // 绑定鼠标事件
                 el.addEventListener('mouseenter', () => {
                     const block = blocks[index]; 
@@ -216,17 +225,24 @@
                      block.isHovered = false;
                 });
 
-                // 禁用默认右键菜单
-                el.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
+                // 拦截点击事件：如果是拖拽结束，阻止跳转
+                el.addEventListener('click', (e) => {
+                    if (hasMoved) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
                 });
 
-                // 右键按下开始拖拽
+                // 左键按下准备拖拽
                 el.addEventListener('mousedown', (e) => {
-                    if (e.button === 2) { // 2 是右键
+                    if (e.button === 0) { // 0 是左键
                         const block = blocks[index];
                         activeDragBlock = block;
-                        block.isDragging = true;
+                        
+                        hasMoved = false;
+                        block.isDragging = false; // 先不标记为拖拽中
+                        dragStartX = e.clientX;
+                        dragStartY = e.clientY;
                         
                         // 计算鼠标相对于方块左上角的偏移
                         const rect = block.el.getBoundingClientRect();
@@ -252,37 +268,48 @@
             // 全局鼠标事件处理拖拽移动和释放
             window.addEventListener('mousemove', (e) => {
                 if (activeDragBlock) {
-                    const containerRect = playground.getBoundingClientRect();
-                    const mouseX = e.clientX - containerRect.left;
-                    const mouseY = e.clientY - containerRect.top;
+                    // 判断是否超过阈值，防止误触
+                    if (!hasMoved) {
+                        const dist = Math.sqrt(Math.pow(e.clientX - dragStartX, 2) + Math.pow(e.clientY - dragStartY, 2));
+                        if (dist > 5) {
+                            hasMoved = true;
+                            activeDragBlock.isDragging = true;
+                        }
+                    }
 
-                    // 更新方块位置
-                    activeDragBlock.x = mouseX - dragOffsetX;
-                    activeDragBlock.y = mouseY - dragOffsetY;
+                    if (hasMoved) {
+                        const containerRect = playground.getBoundingClientRect();
+                        const mouseX = e.clientX - containerRect.left;
+                        const mouseY = e.clientY - containerRect.top;
 
-                    // 计算实时速度 (用于投掷)
-                    const now = performance.now();
-                    const dt = now - lastTime;
-                    if (dt > 0) {
-                        const dx = e.clientX - lastMouseX;
-                        const dy = e.clientY - lastMouseY;
-                        
-                        // 平滑处理：简单的低通滤波，或者直接用瞬时速度
-                        // 这里直接用瞬时速度，稍微限制一下最大值防止飞太快
-                        // 注意：我们需要的速度单位是 px/frame，假设 60fps，dt 约 16ms
-                        // dx/dt 是 px/ms -> px/frame = (dx/dt) * 16.6
-                        dragVelocityX = (dx / dt) * 16.6;
-                        dragVelocityY = (dy / dt) * 16.6;
-                        
-                        lastMouseX = e.clientX;
-                        lastMouseY = e.clientY;
-                        lastTime = now;
+                        // 更新方块位置
+                        activeDragBlock.x = mouseX - dragOffsetX;
+                        activeDragBlock.y = mouseY - dragOffsetY;
+
+                        // 计算实时速度 (用于投掷)
+                        const now = performance.now();
+                        const dt = now - lastTime;
+                        if (dt > 0) {
+                            const dx = e.clientX - lastMouseX;
+                            const dy = e.clientY - lastMouseY;
+                            
+                            // 平滑处理：简单的低通滤波，或者直接用瞬时速度
+                            // 这里直接用瞬时速度，稍微限制一下最大值防止飞太快
+                            // 注意：我们需要的速度单位是 px/frame，假设 60fps，dt 约 16ms
+                            // dx/dt 是 px/ms -> px/frame = (dx/dt) * 16.6
+                            dragVelocityX = (dx / dt) * 16.6;
+                            dragVelocityY = (dy / dt) * 16.6;
+                            
+                            lastMouseX = e.clientX;
+                            lastMouseY = e.clientY;
+                            lastTime = now;
+                        }
                     }
                 }
             });
 
             window.addEventListener('mouseup', (e) => {
-                if (activeDragBlock && e.button === 2) {
+                if (activeDragBlock && e.button === 0) {
                     // 应用投掷速度
                     // 1. 增加阻尼系数 (0.6)，让投掷感觉更"重"，不那么飘
                     const damping = 0.6;
