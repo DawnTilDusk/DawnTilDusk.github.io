@@ -63,6 +63,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (window.ParticleEffects) window.ParticleEffects.setConfig('typing', e.target.checked);
             });
         }
+
+        const switchGameAudio = document.getElementById("switchGameAudio");
+        if (switchGameAudio) {
+            // 读取本地存储，默认为 true
+            const savedAudio = localStorage.getItem('dawn_til_dusk_game_audio');
+            switchGameAudio.checked = savedAudio === null ? true : (savedAudio === 'true');
+
+            switchGameAudio.addEventListener("change", (e) => {
+                localStorage.setItem('dawn_til_dusk_game_audio', e.target.checked);
+            });
+        }
     }
 });
             
