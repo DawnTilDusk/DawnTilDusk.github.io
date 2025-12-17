@@ -308,8 +308,9 @@
                 }
             });
 
-            window.addEventListener('mouseup', (e) => {
-                if (activeDragBlock && e.button === 0) {
+            // 封装释放逻辑
+            function releaseBlock() {
+                if (activeDragBlock) {
                     if (hasMoved) {
                         // 应用投掷速度
                         // 1. 增加阻尼系数 (0.25)，让投掷感觉更"重"
@@ -325,6 +326,19 @@
                     
                     activeDragBlock.isDragging = false;
                     activeDragBlock = null;
+                }
+            }
+
+            window.addEventListener('mouseup', (e) => {
+                if (activeDragBlock && e.button === 0) {
+                    releaseBlock();
+                }
+            });
+
+            // 修复 Bug：如果鼠标拖出窗口，视为完成投掷
+            window.addEventListener('mouseleave', () => {
+                if (activeDragBlock) {
+                    releaseBlock();
                 }
             });
         }
