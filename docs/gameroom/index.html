@@ -307,6 +307,7 @@
                     width: w,
                     height: h,
                     glowTimer: null,
+                    lastHitTime: 0, // 新增：用于音效冷却
                     isHovered: false, // 新增状态
                     isDragging: false // 新增状态：右键拖拽
                 });
@@ -347,6 +348,7 @@
                 // 左键按下准备拖拽
                 el.addEventListener('mousedown', (e) => {
                     if (e.button === 0) { // 0 是左键
+                        e.preventDefault(); // 防止选中文本等默认行为，确保 mouseup 能触发
                         const block = blocks[index];
                         activeDragBlock = block;
                         
@@ -379,6 +381,12 @@
             // 全局鼠标事件处理拖拽移动和释放
             window.addEventListener('mousemove', (e) => {
                 if (activeDragBlock) {
+                    // 安全检查：如果此时没有按住左键 (buttons & 1 应该为真)，说明错过了 mouseup，强制释放
+                    if ((e.buttons & 1) === 0) {
+                        releaseBlock();
+                        return;
+                    }
+
                     // 判断是否超过阈值，防止误触
                     if (!hasMoved) {
                         const dist = Math.sqrt(Math.pow(e.clientX - dragStartX, 2) + Math.pow(e.clientY - dragStartY, 2));
@@ -476,22 +484,37 @@
             blocks.forEach(block => {
                 // 只有拖拽时才完全由鼠标控制，悬停时继续物理运动
                 if (!block.isDragging) {
-                    // --- 速度恢复逻辑 (恒定减速) ---
+                    // --- 速度恢复与维持逻辑 ---
                     // 计算当前合速度
-                    const currentSpeed = Math.sqrt(block.dx * block.dx + block.dy * block.dy);
+                    let currentSpeed = Math.sqrt(block.dx * block.dx + block.dy * block.dy);
                     
-                    // 如果速度超过基准速度，施加恒定阻尼使其恢复
+                    // 防止速度过小导致卡住或持续触发碰撞
+                    // 如果速度几乎为0 (例如 < 0.1)，给一个随机方向的最小速度
+                    if (currentSpeed < 0.1) {
+                        const angle = Math.random() * Math.PI * 2;
+                        block.dx = Math.cos(angle) * baseSpeed;
+                        block.dy = Math.sin(angle) * baseSpeed;
+                        currentSpeed = baseSpeed;
+                    }
+
+                    // 1. 限制最大速度 (减速)
                     if (currentSpeed > baseSpeed) {
                         // 恒定减速 (Linear Deceleration)
-                        // 假设 5秒(300帧) 内从 Max(8) 减到 Base(1.5)，差值 6.5
-                        // 每帧减速约 6.5 / 300 ≈ 0.02
-                        // 为了效果明显一点，我们设为 0.05 (约2秒恢复)
                         const friction = 0.05; 
-                        
                         let newSpeed = currentSpeed - friction;
                         if (newSpeed < baseSpeed) newSpeed = baseSpeed;
                         
-                        // 保持方向，更新大小
+                        const ratio = newSpeed / currentSpeed;
+                        block.dx *= ratio;
+                        block.dy *= ratio;
+                    } 
+                    // 2. 维持最小速度 (加速)
+                    // 如果速度小于基准值，缓慢加速恢复，保证方块始终有活力
+                    else if (currentSpeed < baseSpeed) {
+                        const acceleration = 0.02;
+                        let newSpeed = currentSpeed + acceleration;
+                        if (newSpeed > baseSpeed) newSpeed = baseSpeed;
+
                         const ratio = newSpeed / currentSpeed;
                         block.dx *= ratio;
                         block.dy *= ratio;
@@ -543,7 +566,13 @@
                         triggerGlow(b2);
 
                         // 播放碰撞音效 (改为沙沙声，不吵闹)
-                        playWallSound();
+                        // 冷却检查：只要有一方不在冷却中就播放
+                        const now = performance.now();
+                        if (now - b1.lastHitTime > 150 || now - b2.lastHitTime > 150) {
+                            playWallSound();
+                            b1.lastHitTime = now;
+                            b2.lastHitTime = now;
+                        }
 
                         // 2. 物理计算 (AABB 分离与反弹)
                         
@@ -605,35 +634,39 @@
 
             // 3. 边界碰撞与渲染
             blocks.forEach(block => {
-                if (!block.isHovered) {
-                    let hit = false;
-                    
-                    // 左右边界
-                    if (block.x <= 0) {
-                        block.x = 0;
-                        block.dx = Math.abs(block.dx); // 强制向右
-                        hit = true;
-                    } else if (block.x + block.width >= width) {
-                        block.x = width - block.width;
-                        block.dx = -Math.abs(block.dx); // 强制向左
-                        hit = true;
-                    }
+                // 始终进行边界检查，防止鼠标悬停时飞出界外
+                let hit = false;
+                
+                // 左右边界
+                if (block.x <= 0) {
+                    block.x = 0;
+                    block.dx = Math.abs(block.dx); // 强制向右
+                    hit = true;
+                } else if (block.x + block.width >= width) {
+                    block.x = width - block.width;
+                    block.dx = -Math.abs(block.dx); // 强制向左
+                    hit = true;
+                }
 
-                    // 上下边界
-                    if (block.y <= 0) {
-                        block.y = 0;
-                        block.dy = Math.abs(block.dy); // 强制向下
-                        hit = true;
-                    } else if (block.y + block.height >= height) {
-                        block.y = height - block.height;
-                        block.dy = -Math.abs(block.dy); // 强制向上
-                        hit = true;
-                    }
+                // 上下边界
+                if (block.y <= 0) {
+                    block.y = 0;
+                    block.dy = Math.abs(block.dy); // 强制向下
+                    hit = true;
+                } else if (block.y + block.height >= height) {
+                    block.y = height - block.height;
+                    block.dy = -Math.abs(block.dy); // 强制向上
+                    hit = true;
+                }
 
-                    if (hit) {
-                        triggerGlow(block);
-                        // 撞墙音效，沙沙声
+                if (hit) {
+                    triggerGlow(block);
+                    // 撞墙音效，沙沙声
+                    // 增加冷却时间检查 (150ms)，防止贴边持续触发
+                    const now = performance.now();
+                    if (now - block.lastHitTime > 150) {
                         playWallSound();
+                        block.lastHitTime = now;
                     }
                 }
 
