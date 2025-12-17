@@ -116,9 +116,25 @@
             } 
 
             .init-hidden {
-                max-height: 0;
+                display: grid;
+                grid-template-rows: 0fr;
+                transition: grid-template-rows 0.3s ease-out; /* 平滑展开/收回 */
+            }
+
+            .init-hidden.show {
+                grid-template-rows: 1fr;
+            }
+
+            /* 内部包裹层：用于承载 padding 和 overflow:hidden */
+            .expandable-inner {
+                min-height: 0;
                 overflow: hidden;
-                transition: max-height 0.3s ease; /* 平滑展开/收回 */
+                padding: 0; /* 默认无 padding */
+                transition: padding 0.3s ease-out;
+            }
+
+            .init-hidden.show .expandable-inner {
+                padding: 10px 0; /* 展开时添加 padding */
             }
 
             .content-section {
@@ -154,8 +170,7 @@
             }
 
             .progress-content.show {
-                max-height: 1000px; /* 足够容纳内容 */
-                padding: 10px 0;
+                /* max-height: 1000px;  不再需要 max-height */
             }
 
             .add-progress-container {
