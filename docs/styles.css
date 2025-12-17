@@ -65,6 +65,10 @@
                 color: white;
                 text-decoration: none;
                 transition: color 0.3s; /*  logo颜色过渡 */
+                /* 稍微向上抬高，增加一点呼吸感 */
+                position: relative;
+                /*top: -10px;*/
+                margin-right: 20px;
             }
 
             .logo:hover {
@@ -80,8 +84,8 @@
             .nav-links a {
                 color: white;   /* 链接文字颜色 */
                 text-decoration: none;  /* 去掉链接默认的下划线 */
-                font-size: 1.2rem;  /* 链接文字大小 */
-                padding: 8px 16px;  /* 链接文字与边框的间距 */
+                font-size: 1.1rem;  /* 链接文字大小 */
+                padding: 8px 8px;  /* 链接文字与边框的间距 */
                 border-radius: 4px;  /* 链接边框圆角 */
                 transition: all 0.3s;   /* 所有属性变化都有过渡 */
                 position: relative; /* 关键：让伪元素能相对于链接定位 */
