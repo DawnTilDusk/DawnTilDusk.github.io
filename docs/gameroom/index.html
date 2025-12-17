@@ -138,7 +138,6 @@
                 color: '#4caf50'            // 暂时没用到，可用于特定发光色
             },
             // 示例：未来添加新游戏只需解开注释并修改
-            /*
             {
                 id: 'new-game',
                 name: '超级新游戏',
@@ -146,7 +145,6 @@
                 url: '#',
                 color: '#ff5722'
             },
-            */
         ];
         // ===========================================
 
@@ -215,48 +213,133 @@
             const width = containerRect.width;
             const height = containerRect.height;
 
+            // 1. 更新所有非悬停方块的位置
             blocks.forEach(block => {
-                // 更新位置
-                block.x += block.dx;
-                block.y += block.dy;
-
-                let hit = false;
-
-                // 边界碰撞检测
-                // 左边界
-                if (block.x <= 0) {
-                    block.x = 0;
-                    block.dx = -block.dx;
-                    hit = true;
+                if (!block.isHovered) {
+                    block.x += block.dx;
+                    block.y += block.dy;
                 }
-                // 右边界
-                else if (block.x + block.width >= width) {
-                    block.x = width - block.width;
-                    block.dx = -block.dx;
-                    hit = true;
+            });
+
+            // 2. 方块间的碰撞检测 (双循环避免重复)
+            for (let i = 0; i < blocks.length; i++) {
+                for (let j = i + 1; j < blocks.length; j++) {
+                    const b1 = blocks[i];
+                    const b2 = blocks[j];
+
+                    // 如果两个都被悬停，都不动，无需处理
+                    if (b1.isHovered && b2.isHovered) continue;
+
+                    // 简单的 AABB 碰撞检测 (轴对齐包围盒)
+                    // 如果需要更精确的圆形碰撞（考虑到方块旋转视觉上可能像圆），可以用距离公式
+                    // 这里我们用距离公式模拟“圆形”弹性碰撞，效果更自然
+                    // 假设碰撞半径略小于方块宽度的一半 (60px)
+                    const radius = 60; 
+                    const dx = (b1.x + b1.width/2) - (b2.x + b2.width/2);
+                    const dy = (b1.y + b1.height/2) - (b2.y + b2.height/2);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < radius * 2) {
+                        // === 发生碰撞 ===
+                        
+                        // 1. 触发发光
+                        triggerGlow(b1);
+                        triggerGlow(b2);
+
+                        // 2. 物理计算
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        const overlap = radius * 2 - distance;
+
+                        // 分情况处理质量
+                        if (b1.isHovered) {
+                            // b1 是墙 (无限质量)，b2 反弹
+                            // 位置修正：只移 b2
+                            b2.x -= nx * overlap;
+                            b2.y -= ny * overlap;
+
+                            // 速度反射：v2' = v2 - 2 * dot(v2, n) * n
+                            // 注意：这里的法线 n 是从 b2 指向 b1 的反方向，或者直接用上面的 nx, ny (从 b2 指向 b1 是 -nx, -ny)
+                            // 让我们简单点：相对速度 v_rel = v2 - v1(0) = v2
+                            // 碰撞冲量仅作用于 b2
+                            // 镜面反射公式
+                            const dot = b2.dx * nx + b2.dy * ny;
+                            b2.dx -= 2 * dot * nx;
+                            b2.dy -= 2 * dot * ny;
+
+                        } else if (b2.isHovered) {
+                            // b2 是墙 (无限质量)，b1 反弹
+                            // 位置修正：只移 b1
+                            b1.x += nx * overlap;
+                            b1.y += ny * overlap;
+
+                            // 速度反射
+                            const dot = b1.dx * nx + b1.dy * ny;
+                            b1.dx -= 2 * dot * nx;
+                            b1.dy -= 2 * dot * ny;
+
+                        } else {
+                            // 双方都是普通质量 (完全弹性碰撞)
+                            
+                            // 分离重叠部分 (各退一半)
+                            const separationX = nx * overlap * 0.5;
+                            const separationY = ny * overlap * 0.5;
+                            
+                            b1.x += separationX;
+                            b1.y += separationY;
+                            b2.x -= separationX;
+                            b2.y -= separationY;
+
+                            // 交换法线方向的速度分量
+                            const dvx = b1.dx - b2.dx;
+                            const dvy = b1.dy - b2.dy;
+                            const dotProduct = dvx * nx + dvy * ny;
+
+                            // 只有当它们相互靠近时才反弹
+                            if (dotProduct < 0) {
+                                b1.dx -= dotProduct * nx;
+                                b1.dy -= dotProduct * ny;
+                                b2.dx += dotProduct * nx;
+                                b2.dy += dotProduct * ny;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. 边界碰撞与渲染
+            blocks.forEach(block => {
+                if (!block.isHovered) {
+                    let hit = false;
+                    
+                    // 左右边界
+                    if (block.x <= 0) {
+                        block.x = 0;
+                        block.dx = Math.abs(block.dx); // 强制向右
+                        hit = true;
+                    } else if (block.x + block.width >= width) {
+                        block.x = width - block.width;
+                        block.dx = -Math.abs(block.dx); // 强制向左
+                        hit = true;
+                    }
+
+                    // 上下边界
+                    if (block.y <= 0) {
+                        block.y = 0;
+                        block.dy = Math.abs(block.dy); // 强制向下
+                        hit = true;
+                    } else if (block.y + block.height >= height) {
+                        block.y = height - block.height;
+                        block.dy = -Math.abs(block.dy); // 强制向上
+                        hit = true;
+                    }
+
+                    if (hit) triggerGlow(block);
                 }
 
-                // 上边界
-                if (block.y <= 0) {
-                    block.y = 0;
-                    block.dy = -block.dy;
-                    hit = true;
-                }
-                // 下边界
-                else if (block.y + block.height >= height) {
-                    block.y = height - block.height;
-                    block.dy = -block.dy;
-                    hit = true;
-                }
-
-                // 触发碰撞效果
-                if (hit) {
-                    triggerGlow(block);
-                }
-
-                // 应用位置
-                // 使用 transform 比 top/left 性能更好
-                block.el.style.transform = `translate(${block.x}px, ${block.y}px)`;
+                // 渲染
+                const scale = block.isHovered ? 1.1 : 1.0;
+                block.el.style.transform = `translate(${block.x}px, ${block.y}px) scale(${scale})`;
             });
 
             requestAnimationFrame(animate);
