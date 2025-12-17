@@ -310,17 +310,18 @@
 
             window.addEventListener('mouseup', (e) => {
                 if (activeDragBlock && e.button === 0) {
-                    // 应用投掷速度
-                    // 1. 增加阻尼系数 (0.6)，让投掷感觉更"重"，不那么飘
-                    const damping = 0.6;
-                    let throwVx = dragVelocityX * damping;
-                    let throwVy = dragVelocityY * damping;
+                    if (hasMoved) {
+                        // 应用投掷速度
+                        // 1. 增加阻尼系数 (0.25)，让投掷感觉更"重"
+                        const damping = 0.25;
+                        let throwVx = dragVelocityX * damping;
+                        let throwVy = dragVelocityY * damping;
 
-                    // 2. 限制最大速度 (Cap)，防止穿模或过快
-                    // 将最大速度从 30 降至 12，保证视觉清晰
-                    const maxSpeed = 12;
-                    activeDragBlock.dx = Math.max(-maxSpeed, Math.min(maxSpeed, throwVx));
-                    activeDragBlock.dy = Math.max(-maxSpeed, Math.min(maxSpeed, throwVy));
+                        // 2. 限制最大速度 (Cap) 降至 8
+                        const maxSpeed = 8;
+                        activeDragBlock.dx = Math.max(-maxSpeed, Math.min(maxSpeed, throwVx));
+                        activeDragBlock.dy = Math.max(-maxSpeed, Math.min(maxSpeed, throwVy));
+                    }
                     
                     activeDragBlock.isDragging = false;
                     activeDragBlock = null;
