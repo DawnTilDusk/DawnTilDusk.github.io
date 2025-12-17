@@ -565,11 +565,11 @@
                         triggerGlow(b1);
                         triggerGlow(b2);
 
-                        // 播放碰撞音效 (改为沙沙声，不吵闹)
+                        // 播放碰撞音效 (清脆的声音)
                         // 冷却检查：只要有一方不在冷却中就播放
                         const now = performance.now();
                         if (now - b1.lastHitTime > 150 || now - b2.lastHitTime > 150) {
-                            playWallSound();
+                            playCollisionSound(); // 使用清脆的 Ping 声
                             b1.lastHitTime = now;
                             b2.lastHitTime = now;
                         }
