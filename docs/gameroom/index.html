@@ -151,6 +151,18 @@
         const playground = document.getElementById('game-playground');
         const blocks = [];
 
+        // 全局拖拽状态
+        let activeDragBlock = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        
+        // 用于计算投掷速度
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let lastTime = 0;
+        let dragVelocityX = 0;
+        let dragVelocityY = 0;
+
         // 初始化游戏方块
         function initBlocks() {
             const containerRect = playground.getBoundingClientRect();
@@ -189,21 +201,103 @@
                     width: w,
                     height: h,
                     glowTimer: null,
-                    isHovered: false // 新增状态
+                    isHovered: false, // 新增状态
+                    isDragging: false // 新增状态：右键拖拽
                 });
 
                 // 绑定鼠标事件
                 el.addEventListener('mouseenter', () => {
-                    const block = blocks[index]; // 闭包捕获
+                    const block = blocks[index]; 
                     block.isHovered = true;
-                    // 可选：悬停时暂停运动？或者只是跟随？
-                    // 如果要暂停物理运动，可以在 animate 里判断
                 });
                 
                 el.addEventListener('mouseleave', () => {
                      const block = blocks[index];
                      block.isHovered = false;
                 });
+
+                // 禁用默认右键菜单
+                el.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+
+                // 右键按下开始拖拽
+                el.addEventListener('mousedown', (e) => {
+                    if (e.button === 2) { // 2 是右键
+                        const block = blocks[index];
+                        activeDragBlock = block;
+                        block.isDragging = true;
+                        
+                        // 计算鼠标相对于方块左上角的偏移
+                        const rect = block.el.getBoundingClientRect();
+                        const containerRect = playground.getBoundingClientRect();
+                        
+                        // 鼠标在 playground 内的相对坐标
+                        const mouseX = e.clientX - containerRect.left;
+                        const mouseY = e.clientY - containerRect.top;
+                        
+                        dragOffsetX = mouseX - block.x;
+                        dragOffsetY = mouseY - block.y;
+                        
+                        // 重置速度追踪
+                        lastMouseX = e.clientX;
+                        lastMouseY = e.clientY;
+                        lastTime = performance.now();
+                        dragVelocityX = 0;
+                        dragVelocityY = 0;
+                    }
+                });
+            });
+
+            // 全局鼠标事件处理拖拽移动和释放
+            window.addEventListener('mousemove', (e) => {
+                if (activeDragBlock) {
+                    const containerRect = playground.getBoundingClientRect();
+                    const mouseX = e.clientX - containerRect.left;
+                    const mouseY = e.clientY - containerRect.top;
+
+                    // 更新方块位置
+                    activeDragBlock.x = mouseX - dragOffsetX;
+                    activeDragBlock.y = mouseY - dragOffsetY;
+
+                    // 计算实时速度 (用于投掷)
+                    const now = performance.now();
+                    const dt = now - lastTime;
+                    if (dt > 0) {
+                        const dx = e.clientX - lastMouseX;
+                        const dy = e.clientY - lastMouseY;
+                        
+                        // 平滑处理：简单的低通滤波，或者直接用瞬时速度
+                        // 这里直接用瞬时速度，稍微限制一下最大值防止飞太快
+                        // 注意：我们需要的速度单位是 px/frame，假设 60fps，dt 约 16ms
+                        // dx/dt 是 px/ms -> px/frame = (dx/dt) * 16.6
+                        dragVelocityX = (dx / dt) * 16.6;
+                        dragVelocityY = (dy / dt) * 16.6;
+                        
+                        lastMouseX = e.clientX;
+                        lastMouseY = e.clientY;
+                        lastTime = now;
+                    }
+                }
+            });
+
+            window.addEventListener('mouseup', (e) => {
+                if (activeDragBlock && e.button === 2) {
+                    // 应用投掷速度
+                    // 1. 增加阻尼系数 (0.6)，让投掷感觉更"重"，不那么飘
+                    const damping = 0.6;
+                    let throwVx = dragVelocityX * damping;
+                    let throwVy = dragVelocityY * damping;
+
+                    // 2. 限制最大速度 (Cap)，防止穿模或过快
+                    // 将最大速度从 30 降至 12，保证视觉清晰
+                    const maxSpeed = 12;
+                    activeDragBlock.dx = Math.max(-maxSpeed, Math.min(maxSpeed, throwVx));
+                    activeDragBlock.dy = Math.max(-maxSpeed, Math.min(maxSpeed, throwVy));
+                    
+                    activeDragBlock.isDragging = false;
+                    activeDragBlock = null;
+                }
             });
         }
 
@@ -213,9 +307,9 @@
             const width = containerRect.width;
             const height = containerRect.height;
 
-            // 1. 更新所有非悬停方块的位置
+            // 1. 更新所有非悬停且非拖拽方块的位置
             blocks.forEach(block => {
-                if (!block.isHovered) {
+                if (!block.isHovered && !block.isDragging) {
                     block.x += block.dx;
                     block.y += block.dy;
                 }
@@ -227,8 +321,8 @@
                     const b1 = blocks[i];
                     const b2 = blocks[j];
 
-                    // 如果两个都被悬停，都不动，无需处理
-                    if (b1.isHovered && b2.isHovered) continue;
+                    // 如果两个都被悬停或拖拽，都不动，无需处理
+                    if ((b1.isHovered || b1.isDragging) && (b2.isHovered || b2.isDragging)) continue;
 
                     // 简单的 AABB 碰撞检测 (轴对齐包围盒)
                     // 如果需要更精确的圆形碰撞（考虑到方块旋转视觉上可能像圆），可以用距离公式
@@ -252,7 +346,11 @@
                         const overlap = radius * 2 - distance;
 
                         // 分情况处理质量
-                        if (b1.isHovered) {
+                        // 拖拽中的方块也被视为无限质量
+                        const b1Infinite = b1.isHovered || b1.isDragging;
+                        const b2Infinite = b2.isHovered || b2.isDragging;
+
+                        if (b1Infinite) {
                             // b1 是墙 (无限质量)，b2 反弹
                             // 位置修正：只移 b2
                             b2.x -= nx * overlap;
@@ -338,8 +436,15 @@
                 }
 
                 // 渲染
-                const scale = block.isHovered ? 1.1 : 1.0;
+                // 拖拽时稍微放大一点以示区别
+                const scale = block.isDragging ? 1.05 : 1.0; 
                 block.el.style.transform = `translate(${block.x}px, ${block.y}px) scale(${scale})`;
+                // 拖拽时层级最高
+                if (block.isDragging) {
+                    block.el.style.zIndex = 1000;
+                } else {
+                    block.el.style.zIndex = "";
+                }
             });
 
             requestAnimationFrame(animate);
