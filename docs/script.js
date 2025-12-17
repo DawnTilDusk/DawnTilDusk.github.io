@@ -26,6 +26,36 @@ document.addEventListener("DOMContentLoaded", () => {
             const progressContent = document.getElementById("progressContent");
             const addProgressBtn = document.getElementById("addProgressBtn");
             const progress = {};
+            const STORAGE_KEY = "dawn_til_dusk_progress";
+
+            // Load data on startup
+            loadFromLocalStorage();
+
+            function saveToLocalStorage() {
+                const tasks = [];
+                const sections = progressSectionsContainer.querySelectorAll(".progress-section");
+                sections.forEach(section => {
+                    const nameKey = section.dataset.nameKey;
+                    const name = section.querySelector(".name").textContent;
+                    const value = progress[nameKey];
+                    tasks.push({ name, value });
+                });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+            }
+
+            function loadFromLocalStorage() {
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (data) {
+                    try {
+                        const tasks = JSON.parse(data);
+                        tasks.forEach(task => {
+                            addProgress(task.name, task.value, false);
+                        });
+                    } catch (e) {
+                        console.error("Failed to load progress:", e);
+                    }
+                }
+            }
 
  /*           increaseBtn.addEventListener("click", (nameKey) => {
                 progress[nameKey] += 1;
@@ -61,7 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            function addProgress(name){                  
+            function addProgress(name, value = 0, save = true){                  
                 const progressSection = document.createElement("div");
                 progressSection.className = "progress-section";
 
@@ -78,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
                 
-                progress[nameKey] = 0;
+                progress[nameKey] = value;
                 progressSection.dataset.nameKey = nameKey;
 
                 progressSection.innerHTML = `  
@@ -97,6 +127,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>                    
                 `;
                 progressSectionContainer.appendChild(progressSection);
+                updateProgress(progressSection, nameKey); // Ensure styling is correct
+                if (save) {
+                    saveToLocalStorage();
+                }
             }    
 
             progressSectionsContainer.addEventListener('click', (e) => {
@@ -121,7 +155,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         progress[nameKey] = 0;
                         break;
                 }   
-                updateProgress(progressSection, nameKey);
+                if (action !== "remove") {
+                    updateProgress(progressSection, nameKey);
+                }
+                saveToLocalStorage();
             });
 
             progressContent.addEventListener("keypress", (e) => {
