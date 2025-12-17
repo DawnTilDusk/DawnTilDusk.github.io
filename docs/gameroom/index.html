@@ -335,9 +335,33 @@
             const width = containerRect.width;
             const height = containerRect.height;
 
-            // 1. 更新所有非悬停且非拖拽方块的位置
+            // 1. 更新所有非拖拽方块的位置 (悬停不再冻结)
+            const baseSpeed = 1.5;
             blocks.forEach(block => {
-                if (!block.isHovered && !block.isDragging) {
+                // 只有拖拽时才完全由鼠标控制，悬停时继续物理运动
+                if (!block.isDragging) {
+                    // --- 速度恢复逻辑 (恒定减速) ---
+                    // 计算当前合速度
+                    const currentSpeed = Math.sqrt(block.dx * block.dx + block.dy * block.dy);
+                    
+                    // 如果速度超过基准速度，施加恒定阻尼使其恢复
+                    if (currentSpeed > baseSpeed) {
+                        // 恒定减速 (Linear Deceleration)
+                        // 假设 5秒(300帧) 内从 Max(8) 减到 Base(1.5)，差值 6.5
+                        // 每帧减速约 6.5 / 300 ≈ 0.02
+                        // 为了效果明显一点，我们设为 0.05 (约2秒恢复)
+                        const friction = 0.05; 
+                        
+                        let newSpeed = currentSpeed - friction;
+                        if (newSpeed < baseSpeed) newSpeed = baseSpeed;
+                        
+                        // 保持方向，更新大小
+                        const ratio = newSpeed / currentSpeed;
+                        block.dx *= ratio;
+                        block.dy *= ratio;
+                    }
+                    // -------------------
+
                     block.x += block.dx;
                     block.y += block.dy;
                 }
@@ -349,8 +373,8 @@
                     const b1 = blocks[i];
                     const b2 = blocks[j];
 
-                    // 如果两个都被悬停或拖拽，都不动，无需处理
-                    if ((b1.isHovered || b1.isDragging) && (b2.isHovered || b2.isDragging)) continue;
+                    // 只有拖拽时才视为“静止/无限质量”
+                    if (b1.isDragging && b2.isDragging) continue;
 
                     // 简单的 AABB 碰撞检测 (轴对齐包围盒)
                     // 如果需要更精确的圆形碰撞（考虑到方块旋转视觉上可能像圆），可以用距离公式
