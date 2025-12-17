@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子特效测试 | PlayGround</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background-color: #2c3e50;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+            user-select: none; /* 防止双击选中文本 */
+            overflow: hidden;
+        }
+
+        .instruction {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 2rem;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0 0 1rem 0;
+            font-weight: 300;
+        }
+
+        p {
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        .typing-container {
+            position: relative;
+            z-index: 10;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        /* 模拟输入框的样式 */
+        .typing-area {
+            width: 100%;
+            min-height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            font-size: 1.5rem;
+            color: white;
+            outline: none;
+            transition: border-color 0.3s, background 0.3s;
+            cursor: text;
+            user-select: text; /* 允许在输入框内选中文本 */
+        }
+
+        .typing-area:focus {
+            border-color: #448aff;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* 占位符效果 */
+        .typing-area:empty::before {
+            content: attr(placeholder);
+            color: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="instruction">
+        <h1>粒子爆炸特效测试</h1>
+        <p>点击屏幕任意位置，或在下方输入框打字体验特效</p>
+    </div>
+
+    <div class="typing-container">
+        <!-- contenteditable div 用于更容易获取光标位置 -->
+        <div class="typing-area" contenteditable="true" placeholder="试着在这里打字..."></div>
+    </div>
+
+    <!-- 引入特效脚本 -->
+    <script src="../clickEffects.js"></script>
+
+    <script>
+        // 获取输入区域
+        const typingArea = document.querySelector('.typing-area');
+
+        // 监听输入事件
+        typingArea.addEventListener('input', () => {
+            triggerTypingEffect();
+        });
+
+        // 监听键盘按下（处理一些不触发input的按键，或者为了更灵敏）
+        // 但 input 事件对于字符输入是最准确的
+        
+        function triggerTypingEffect() {
+            // 获取当前选区（光标位置）
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                // 获取光标的边界矩形
+                // getBoundingClientRect 可能返回多个矩形（如果是多行选区），这里我们只关心最后那个光标的位置
+                // 对于折叠的 range (光标)，getClientRects() 通常有一个
+                const rects = range.getClientRects();
+                const rect = rects.length > 0 ? rects[0] : range.getBoundingClientRect();
+                
+                if (rect) {
+                    // 光标位置（稍微向右偏移一点，避免挡住字）
+                    const x = rect.left;
+                    const y = rect.top + rect.height / 2;
+
+                    // 触发特效（打字时粒子少一点，爆炸范围小一点，这里复用createExplosion，只是默认参数）
+                    // 如果需要更细腻的效果，可以修改 createExplosion 支持参数配置
+                    if (window.createExplosion) {
+                        window.createExplosion(x, y, 10); // 10个粒子即可
+                    }
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
