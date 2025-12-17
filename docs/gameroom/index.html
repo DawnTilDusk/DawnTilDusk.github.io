@@ -156,7 +156,8 @@
                 id: 'eastereggs-as-well',
                 name: 'Aha',
                 icon: 'fa-face-laugh-squint',
-                url: 'https://v.qq.com/txp/iframe/player.html?vid=s3233ejju5y&auto=1&mute=1',
+                url: '#',
+                action: 'easterEgg',
                 color: '#ff5722'
             },
             {
@@ -246,11 +247,19 @@
                      block.isHovered = false;
                 });
 
-                // 拦截点击事件：如果是拖拽结束，阻止跳转
+                // 拦截点击事件：如果是拖拽结束，阻止跳转；如果是彩蛋方块，触发彩蛋
                 el.addEventListener('click', (e) => {
                     if (hasMoved) {
                         e.preventDefault();
                         e.stopPropagation();
+                        return;
+                    }
+                    
+                    if (game.action === 'easterEgg') {
+                        e.preventDefault();
+                        if (window.triggerEasterEgg) {
+                            window.triggerEasterEgg();
+                        }
                     }
                 });
 
@@ -572,5 +581,7 @@
     </script>
     <!-- 复用主页的彩蛋逻辑 -->
     <script src="../easterEgg.js"></script>
+    <!-- 引入粒子特效 -->
+    <script src="../clickEffects.js"></script>
 </body>
 </html>

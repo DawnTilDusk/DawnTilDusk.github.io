@@ -67,7 +67,7 @@
                 transition: color 0.3s; /*  logo颜色过渡 */
                 /* 稍微向上抬高，增加一点呼吸感 */
                 position: relative;
-                /*top: -10px;*/
+                top: -5px;
                 margin-right: 20px;
             }
 
@@ -125,7 +125,7 @@
                 background: linear-gradient(135deg, rgba(45, 109, 229, 0.603), rgba(186, 211, 234, 0.603));
                 border-radius: 8px;
                 padding: 30px;
-                margin-bottom: 2px;
+                margin-bottom: 20px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.05);
                 transition: all 0.3s ease-in-out;
             }
@@ -176,6 +176,18 @@
                 font-size: 16px;       /* 字体大小 */
                 box-sizing: border-box;/* 确保padding不会撑大宽度（关键！） */
                 transition: all 0.3s;  /* 所有样式变化添加过渡（平滑动画） */
+                display: inline-block; /* 适配 contenteditable div */
+                background-color: white; /* 确保背景色 */
+                min-height: 42px;      /* 确保高度与原来的 input 一致 */
+                vertical-align: middle; /* 垂直居中 */
+                cursor: text;          /* 鼠标变为文本输入样式 */
+            }
+
+            /* 占位符效果 */
+            .fancy-input:empty::before {
+                content: attr(placeholder);
+                color: #999;
+                pointer-events: none;
             }
 
             /* 2. 鼠标悬浮状态：边框变色 */
@@ -357,4 +369,73 @@
                     width: 100%;
                     text-align: center;
                 }
+            }
+
+            /* === Toggle Switch CSS === */
+            .settings-container {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                padding: 10px 20px;
+            }
+
+            .setting-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                color: white;
+                font-size: 1.1rem;
+            }
+
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 50px;
+                height: 26px;
+            }
+
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                -webkit-transition: .4s;
+                transition: .4s;
+                border-radius: 34px;
+            }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 20px;
+                width: 20px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                -webkit-transition: .4s;
+                transition: .4s;
+                border-radius: 50%;
+            }
+
+            input:checked + .slider {
+                background-color: #2196F3;
+            }
+
+            input:focus + .slider {
+                box-shadow: 0 0 1px #2196F3;
+            }
+
+            input:checked + .slider:before {
+                -webkit-transform: translateX(24px);
+                -ms-transform: translateX(24px);
+                transform: translateX(24px);
             }

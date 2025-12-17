@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // === 学习进度栏逻辑 ===
     const toggleBtn = document.getElementById("toggleProgressBtn");
     const contentWrapper = document.getElementById("progressContentWrapper");
     let isExpanded = false; // 初始状态：收回
@@ -17,6 +18,52 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleBtn.classList.remove("expanded"); // 移除展开类（箭头复位）
     }
     });
+
+    // === 设置栏逻辑 ===
+    const toggleSettingsBtn = document.getElementById("toggleSettingsBtn");
+    const settingsContentWrapper = document.getElementById("settingsContentWrapper");
+    let isSettingsExpanded = false;
+
+    if (toggleSettingsBtn && settingsContentWrapper) {
+        toggleSettingsBtn.addEventListener("click", () => {
+            isSettingsExpanded = !isSettingsExpanded;
+            if (isSettingsExpanded) {
+                settingsContentWrapper.classList.add("show");
+                toggleSettingsBtn.classList.add("expanded");
+            } else {
+                settingsContentWrapper.classList.remove("show");
+                toggleSettingsBtn.classList.remove("expanded");
+            }
+        });
+
+        // 初始化开关状态
+        const config = window.ParticleEffects ? window.ParticleEffects.getConfig() : { leftClick: true, rightClick: true, typing: true };
+        
+        const switchLeftClick = document.getElementById("switchLeftClick");
+        const switchRightClick = document.getElementById("switchRightClick");
+        const switchTyping = document.getElementById("switchTyping");
+
+        if (switchLeftClick) {
+            switchLeftClick.checked = config.leftClick;
+            switchLeftClick.addEventListener("change", (e) => {
+                if (window.ParticleEffects) window.ParticleEffects.setConfig('leftClick', e.target.checked);
+            });
+        }
+
+        if (switchRightClick) {
+            switchRightClick.checked = config.rightClick;
+            switchRightClick.addEventListener("change", (e) => {
+                if (window.ParticleEffects) window.ParticleEffects.setConfig('rightClick', e.target.checked);
+            });
+        }
+
+        if (switchTyping) {
+            switchTyping.checked = config.typing;
+            switchTyping.addEventListener("change", (e) => {
+                if (window.ParticleEffects) window.ParticleEffects.setConfig('typing', e.target.checked);
+            });
+        }
+    }
 });
             
             
@@ -163,12 +210,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             progressContent.addEventListener("keypress", (e) => {
                 if (e.key === "Enter") {
-                    addProgress(progressContent.value.trim());
-                    progressContent.value = "";
+                    e.preventDefault(); // 阻止换行
+                    addProgress(progressContent.innerText.trim());
+                    progressContent.innerText = "";
                 }
             });
                 
             addProgressBtn.addEventListener("click", () => {
-                addProgress(progressContent.value.trim());
-                progressContent.value = "";
+                addProgress(progressContent.innerText.trim());
+                progressContent.innerText = "";
             });

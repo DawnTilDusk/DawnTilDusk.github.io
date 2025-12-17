@@ -35,7 +35,7 @@
 
                     <div class="progress-content init-hidden" id="progressContentWrapper">
                         <div class="add-progress-container">
-                            <input type="text" class="fancy-input" data-name="name" id="progressContent" placeholder="请输入to do">
+                            <div class="fancy-input" contenteditable="true" data-name="name" id="progressContent" placeholder="请输入to do"></div>
                            <button class="btn add-progress-btn" id="addProgressBtn">添加</button>
                         </div>
 
@@ -44,6 +44,40 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- 设置栏 -->
+                <section class="content-section">
+                    <button class="section-title-btn" id="toggleSettingsBtn">设置
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+
+                    <div class="progress-content init-hidden" id="settingsContentWrapper">
+                        <div class="settings-container">
+                            <div class="setting-item">
+                                <span>左键点击特效</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="switchLeftClick">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <span>右键点击特效</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="switchRightClick">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="setting-item">
+                                <span>打字输入特效</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="switchTyping">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
             </main>
         </div>
         <footer>
@@ -51,5 +85,6 @@
         </footer>
         <script src="script.js"></script>
         <script src="easterEgg.js"></script>
+        <script src="clickEffects.js"></script>
     </body>
 </html>
