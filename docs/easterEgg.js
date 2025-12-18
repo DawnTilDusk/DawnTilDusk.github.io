@@ -6,6 +6,11 @@ window.triggerEasterEgg = function() {
     // 打开新窗口播放视频
     const videoWindow = window.open(videoUrl, "_blank", "width=1024,height=768");
     
+    if (!videoWindow) {
+        alert("弹窗被拦截！请在浏览器地址栏允许本站弹出窗口。");
+        return;
+    }
+
     // 尝试自动全屏（需等待视频加载，且受所有浏览器支持）
     setTimeout(() => {
         // 调用视频窗口的全屏API（需视频播放器支持）

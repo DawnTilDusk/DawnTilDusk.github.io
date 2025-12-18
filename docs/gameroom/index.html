@@ -349,6 +349,9 @@
                         e.preventDefault();
                         if (window.triggerEasterEgg) {
                             window.triggerEasterEgg();
+                        } else {
+                            console.error("window.triggerEasterEgg is undefined");
+                            alert("彩蛋功能暂不可用（脚本未加载），请刷新页面重试！");
                         }
                     }
                 });
